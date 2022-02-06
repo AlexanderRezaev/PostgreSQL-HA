@@ -55,14 +55,14 @@
 
 Замечание
 
-Также является важным параметр **synchronous\_commit**
-
-<https://www.enterprisedb.com/blog/why-use-synchronous-replication-in-postgresql-configure-streaming-replication-wal>
-
-Когда произошел сбой, транзакции, которые находились на пути от walsender к процессу walreceiver, были потеряны.
-
-Минимальные требования: **synchronous\_commit = on**
-
+>Также является важным параметр **synchronous\_commit**
+>
+><https://www.enterprisedb.com/blog/why-use-synchronous-replication-in-postgresql-configure-streaming-replication-wal>
+>
+>Когда произошел сбой, транзакции, которые находились на пути от walsender к процессу walreceiver, были потеряны.
+>
+>Минимальные требования: **synchronous\_commit = on**
+>
 <https://postgrespro.ru/docs/postgresql/10/runtime-config-wal#GUC-SYNCHRONOUS-COMMIT>
 
 <https://www.2ndquadrant.com/en/blog/evolution-fault-tolerance-postgresql-synchronous-commit/>
