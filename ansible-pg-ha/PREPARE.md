@@ -6,8 +6,8 @@ vgs --units m -o vg_name,pv_name,pv_size,pv_free
 lvs --units m -o vg_name,lv_name,origin,lv_size,data_percent,mirror_log,devices
 pvs --units m -o pv_name,pv_size,pv_free
 
-# fdisk /dev/sdb
-# fdisk /dev/sdc
+fdisk /dev/sdb
+fdisk /dev/sdc
 
 pvcreate /dev/sdb1
 pvcreate /dev/sdc1
