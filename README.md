@@ -2,7 +2,7 @@
 
 Замечание
 
-Понятие кластеризации несколько шире (см https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/7282)
+Понятие кластеризации несколько шире (см <https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/7282>)
 
 Можно ли быть недоступным в течение определенных периодов времени или лучше быть (почти) всегда доступным, терпя при этом определенную потерю данных?
 
@@ -18,7 +18,7 @@ PostgreSQL поддерживает три возможных компромис
 
 Далее рассматривается построение кластера PostgreSQL высокой доступности без потери закоммиченных данных (предпочтение согласованности) и с защитой от split-brain.
 
-https://en.wikipedia.org/wiki/Split-brain_(computing)
+<https://en.wikipedia.org/wiki/Split-brain_(computing)>
 
 Современные коммерческие кластеры высокой доступности общего назначения обычно используют комбинацию пульса (heartbeat) между узлами кластера и хранилища-свидетеля кворума (quorum). Проблема с двухузловыми кластерами заключается в том, что добавление устройства-свидетеля увеличивает стоимость и сложность (даже если оно реализовано в облаке), но без него в случае сбоя heartbeat члены кластера не могут определить, какое из них должно быть активным. В таких кластерах (без кворума) в случае сбоя члена, даже если члены имеют первичный и вторичный статус, существует по крайней мере 50% вероятность того, что кластер высокой доступности с 2 узлами полностью выйдет из строя, пока не будет обеспечено вмешательство человека, чтобы предотвратить активацию нескольких членов независимо друг от друга и, следовательно, несоответствие или повреждение данных.
 
@@ -43,13 +43,13 @@ https://en.wikipedia.org/wiki/Split-brain_(computing)
 
 Единственный вариант, который обладает и защитой от потери закоммиченных транзакций, и защитой от split-brain, это **синхронная репликация в режиме кворума**.
 
-[https://postgrespro.ru/docs/postgresql/10/runtime-config-replication#GUC-SYNCHRONOUS-STANDBY-NAMES]()
+<https://postgrespro.ru/docs/postgresql/10/runtime-config-replication#GUC-SYNCHRONOUS-STANDBY-NAMES>
 
 **synchronous\_standby\_names**: 'ANY 1 ("pg-1","pg-2","pg-3")'
 
 \- синхронная потоковая репликацию на основе кворума, когда транзакции фиксируются только после того, как их записи в WAL реплицируются как минимум на 1 из ведомых серверов (кворум 2 из 3-х).
 
-В данной конфигурации невозможен split-brain. Даже если два сервера объявят себя master, то работать сможет только один из них, т.к. для фиксации транзакции нужен ещё и slave, а slave будет работать только с одним master (определяется timeline [https://habr.com/ru/company/pgdayrussia/blog/327750/]()).
+В данной конфигурации невозможен split-brain. Даже если два сервера объявят себя master, то работать сможет только один из них, т.к. для фиксации транзакции нужен ещё и slave, а slave будет работать только с одним master (определяется timeline <https://habr.com/ru/company/pgdayrussia/blog/327750/>).
 
 Данная конфигурация позволяет перезагружать/останавливать/обслуживать любой узел с postgres не прерывая работы кластера.
 
@@ -57,15 +57,15 @@ https://en.wikipedia.org/wiki/Split-brain_(computing)
 
 Также является важным параметр **synchronous\_commit**
 
-[https://www.enterprisedb.com/blog/why-use-synchronous-replication-in-postgresql-configure-streaming-replication-wal]()
+https://www.enterprisedb.com/blog/why-use-synchronous-replication-in-postgresql-configure-streaming-replication-wal>
 
 Когда произошел сбой, транзакции, которые находились на пути от walsender к процессу walreceiver, были потеряны.
 
 Минимальные требования: **synchronous\_commit = on**
 
-[https://postgrespro.ru/docs/postgresql/10/runtime-config-wal#GUC-SYNCHRONOUS-COMMIT]()
+<https://postgrespro.ru/docs/postgresql/10/runtime-config-wal#GUC-SYNCHRONOUS-COMMIT>
 
-[https://www.2ndquadrant.com/en/blog/evolution-fault-tolerance-postgresql-synchronous-commit/]()
+<https://www.2ndquadrant.com/en/blog/evolution-fault-tolerance-postgresql-synchronous-commit/>
 
 **synchronous\_commit = off** - коммиты отправляются в приложение, после того как транзакция обрабатывается внутренним процессом, но до того, как транзакция сброшена в WAL. Это означает, что даже один сервер гипотетически может потерять данные. Сама репликация игнорируется.
 
@@ -79,7 +79,7 @@ https://en.wikipedia.org/wiki/Split-brain_(computing)
 
 **о производительности репликации**
 
-` `[https://www.cybertec-postgresql.com/en/the-synchronous_commit-parameter/]()
+` `<https://www.cybertec-postgresql.com/en/the-synchronous_commit-parameter/>
 
 "async on" - 4256 TPS (здесь 1 транзакция означает 3 обновления, 1 вставку, 1 выбор)
 
