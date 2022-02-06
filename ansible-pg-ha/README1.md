@@ -32,3 +32,4 @@ ansible-playbook -i inv_pg_hosts1 --tags pg_profile_install pgcluster1.yml
 
 ansible-playbook -i inv_pg_hosts1 --tags ipsec_install pgcluster1.yml
 ```
+cat README1.md | grep -v '```' | nocomments
