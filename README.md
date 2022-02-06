@@ -105,4 +105,4 @@
 
 Учитывая наличие в Patroni callback скриптов, достаточно просто реализовать Cluster IP <https://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback>
 
-Для работы Cluster IP в сегментированных корпоративных сетях используется ARP announcements <https://en.wikipedia.org/wiki/Address_Resolution_Protocol#ARP_announcements> (используется pgpool).
+Для работы Cluster IP в сегментированных корпоративных сетях используется ARP announcements <https://en.wikipedia.org/wiki/Address_Resolution_Protocol#ARP_announcements> (используется стандартно в кластерах pgpool).
