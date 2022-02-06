@@ -1,0 +1,36 @@
+#postgresql_user: postgres
+#postgresql_group: postgres
+#postgresql_data_dir: "/var/lib/pgsql/{{ postgresql_version }}/data"
+#postgresql_wal_dir:  "/var/lib/pgsql/{{ postgresql_version }}/wal"
+
+postgresql_data_dev: "/dev/postgresql_data_vg/pg_data"
+postgresql_wal_dev:  "/dev/postgresql_wal_vg/pg_wal"
+
+postgresql_std_dir: "/var/lib/pgsql/{{ postgresql_version }}"
+
+#{% if postgresql_on_mounted_disk = true %}
+
+# postgresql_on_mounted_disk: true
+#postgresql_root_dir: "/var/lib/pgsql"
+#postgresql_data_dir: "/var/lib/pgsql/data"
+#postgresql_wal_dir:  "/var/lib/pgsql/wal"
+
+#{% else %}
+
+# postgresql_on_mounted_disk: false
+postgresql_root_dir: "/var/lib/pgsql/{{ postgresql_version }}"
+postgresql_data_dir: "/var/lib/pgsql/{{ postgresql_version }}/data"
+postgresql_wal_dir:  "/var/lib/pgsql/{{ postgresql_version }}/pg_wal"
+
+#{% endif %}
+
+#postgresql_version: [OS-specific]
+#postgresql_bin_path: [OS-specific]
+#postgresql_config_path: [OS-specific]
+#postgresql_daemon: [OS-specific]
+#postgresql_packages: [OS-specific]
+
+postgresql_cgroups: true
+
+PG_VERSION_DOWNLOAD_URL: "https://download.postgresql.org/pub/repos/yum/{{ postgresql_version }}/redhat/rhel-8.5-x86_64/"
+PG_COMMON_DOWNLOAD_URL:  'https://download.postgresql.org/pub/repos/yum/common/redhat/rhel-8.5-x86_64/'

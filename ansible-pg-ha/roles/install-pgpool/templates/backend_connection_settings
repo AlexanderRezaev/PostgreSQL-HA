@@ -1,0 +1,7 @@
+{% for host in groups['postgresql_cluster'] %}
+backend_hostname{{ hostvars[host].ansible_set_patroni_id - 1 }} = '{{ host }}'
+backend_port{{ hostvars[host].ansible_set_patroni_id - 1 }} = {{ postgresql_port }}
+backend_weight{{ hostvars[host].ansible_set_patroni_id - 1 }} = 1
+backend_data_directory{{ hostvars[host].ansible_set_patroni_id - 1 }} = '/var/lib/pgsql/{{ postgresql_version }}/data'
+backend_flag{{ hostvars[host].ansible_set_patroni_id - 1 }} = 'DISALLOW_TO_FAILOVER'
+{% endfor %}

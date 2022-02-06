@@ -1,0 +1,16 @@
+---
+# имя любого tags не должно входить в имя любого tags, кроме себя самого
+
+- debug: msg="Please, specify the --tags"
+  when: "'all' in ansible_run_tags"
+  tags: [zookeeper_install,zookeeper_remove]
+
+- meta: end_play
+  when: "'all' in ansible_run_tags"
+  tags: [zookeeper_install,zookeeper_remove]
+
+- include: install.yml
+  tags: [zookeeper_install]
+
+- include: remove.yml
+  tags: [zookeeper_remove]

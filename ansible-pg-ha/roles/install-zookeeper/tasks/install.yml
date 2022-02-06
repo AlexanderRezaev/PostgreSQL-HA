@@ -1,0 +1,506 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  when: ansible_logget is undefined or ansible_logget == true
+
+- local_action: command whoami
+  register: who
+  run_once: true
+  when: ansible_logget is undefined or ansible_logget == true
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }} by {{ who.stdout }}"
+  when: ansible_logget is undefined or ansible_logget == true
+
+- debug: msg="{{ ansible_distribution }}"
+
+- name: install chrony
+  package:
+    name: chrony
+    state: present
+  when: ansible_distribution != 'Debian'
+
+- name: start chronyd service
+  service: name=chronyd state=started enabled=yes
+
+- name: install nmap-ncat
+  package:
+    name: nmap-ncat
+    state: present
+  when: ansible_distribution != 'Debian'
+
+- name: install unzip
+  package:
+    name: unzip
+    state: present
+  when: ansible_distribution != 'Debian'
+
+- name: EPEL Repo
+  shell: dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+  args:
+    warn: no
+  when: ansible_distribution == 'RedHat'
+
+- name: EPEL Repo
+  yum:
+    name: epel-release
+    state: latest
+  when: ansible_distribution != 'Debian' and ansible_distribution != 'RedHat'
+
+- name: install ioping
+  package:
+    name: ioping
+    state: present
+
+- name: install JAVA 8 on Ubuntu
+  package:
+    name: openjdk-8-jdk	              # Ubuntu 20
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: install JAVA 8 on CentOS
+  package:
+    name: java-1.8.0-openjdk          # CentOS 8
+    state: present
+  when: ansible_os_family == 'RedHat'
+
+- name: Ensure group "zookeeper" exists
+  group:
+    name: zookeeper
+    state: present
+
+- name: Add the user 'zookeeper'
+  user:
+    name: zookeeper
+    comment: zokeeper service
+    group: zookeeper
+    state: present
+
+- name: online installation           
+  block:
+
+#  - debug: var="curl -L {{ ZOOKEEPER_DOWNLOAD_URL }}/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz -o /opt/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz"
+#    run_once: true
+
+  - name: download
+    shell: "curl -L {{ ZOOKEEPER_DOWNLOAD_URL }}/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz -o /opt/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz"
+    args:
+      warn: no
+
+  when: installation == 'online'
+
+- name: offline installation
+  block:
+
+  - name: check distribution
+    local_action: stat path="{{ zookeeper_src }}"
+    register: someFile
+    failed_when: not someFile.stat.exists
+
+  - name: copy zookeeper tar
+    copy:
+      src: "{{ zookeeper_src }}"
+      dest: "/opt/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz"
+      force: no
+
+  when: installation == 'offline'
+
+- name: extract zookeeper tar
+  unarchive:
+    src: "/opt/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz"
+    dest: '/opt'
+    remote_src: yes
+
+- name: remove link /opt/zookeeper
+  shell: rm -rf /opt/zookeeper
+  args:
+    warn: no
+
+- name: Create a symbolic link /opt/zookeeper
+  file:
+    src: "/opt/apache-zookeeper-{{ zookeeper_version }}-bin"
+    dest: '/opt/zookeeper'
+    owner: zookeeper
+    group: zookeeper
+    state: link
+
+- name: Change owner /opt/zookeeper
+  file:
+    path: '/opt/zookeeper'
+    state: directory
+    recurse: yes
+    owner: zookeeper
+    group: zookeeper
+
+- name: create dir cfg
+  file:
+    path: "{{ zookeeper_cfg }}"
+    state: directory
+    owner: zookeeper
+    group: zookeeper
+
+- name: create dir data
+  file:
+    path: "{{ zookeeper_dat }}"
+    state: directory
+    owner: zookeeper
+    group: zookeeper
+
+- name: create dir data log
+  file:
+    path: "{{ zookeeper_datlog }}"
+    state: directory
+    owner: zookeeper
+    group: zookeeper
+
+- name: create dir log
+  file:
+    path: "{{ zookeeper_log }}"
+    state: directory
+    owner: zookeeper
+    group: zookeeper
+
+- name: create dir backups
+  file:
+    path: "{{ zookeeper_backup_home }}/{{ zookeeper_service }}"
+    state: directory
+    owner: root
+    group: root
+    mode: o-rwx
+
+#- name: create dir archives
+#  file:
+#    path: "{{ zookeeper_archive_mount }}"
+#    state: directory
+#    owner: root
+#    group: root
+#    mode: o-rwx
+#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- name: unmount {{ zookeeper_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
+#  mount:
+#    src: "{{ zookeeper_archive_disk }}"
+#    path: "{{ zookeeper_archive_mount }}"
+#    state: unmounted
+#    fstab: /tmp/zktmp.fstab
+#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- include: archiving_disk_state_reset.yml
+#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- include: archiving_disk_state_import.yml
+#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- name: mount {{ zookeeper_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
+#  mount:
+#    src: "{{ zookeeper_archive_disk }}"
+#    path: "{{ zookeeper_archive_mount }}"
+#    fstype: xfs
+#    state: mounted
+#    fstab: /tmp/zktmp.fstab
+#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- name: unmount {{ zookeeper_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
+#  mount:
+#    src: "{{ zookeeper_archive_disk }}"
+#    path: "{{ zookeeper_archive_mount }}"
+#    state: unmounted
+#    fstab: /tmp/zktmp.fstab
+#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- include: archiving_disk_state_export.yml
+#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- name: template archiving
+#  template: src=zk_archiving.sh dest="{{ zookeeper_backup_home }}/{{ zookeeper_service }}/zk_archiving.sh" mode=0700
+#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
+
+- name: Configure /etc/hosts. Comment on 127.0.1.1
+  lineinfile:
+    dest: "/etc/hosts"
+    regexp: '(?i)^(127\.0\.1\.1.*)'
+    line: '# \1'
+    backrefs: yes
+    state: present
+
+- name: Configure /etc/hosts. Comment on ::1
+  lineinfile:
+    dest: "/etc/hosts"
+    regexp: '(?i)^(::1.*)'
+    line: '# \1'
+    backrefs: yes
+    state: present
+
+- name: Configure /etc/hosts.
+  lineinfile:
+    dest: "/etc/hosts"
+    line: "{{ hostvars[item].ansible_set_ip }}	{{ hostvars[item].ansible_set_fqdn }}	{{ item }}"
+    state: present
+    create: yes
+  with_items: "{{ groups['dcs_cluster'] }}"
+
+- name: template config
+  template: src=zoo.cfg.j2 dest={{ zookeeper_cfg }}/zoo.cfg owner=zookeeper group=zookeeper mode=0600
+
+- name: template backup
+  template: src=zk_backup.sh dest="{{ zookeeper_backup_home }}/{{ zookeeper_service }}/zk_backup.sh" mode=0700
+
+- name: template jaas
+  template: src=jaas.cfg.j2 dest={{ zookeeper_cfg }}/jaas.cfg owner=zookeeper group=zookeeper mode=0600
+  when: zookeeper_auth is defined and zookeeper_auth == 'digest'
+
+- name: copy log4j
+  shell: cp /opt/zookeeper/conf/log4j.properties {{ zookeeper_cfg }}/log4j.properties
+  args:
+    warn: no
+
+- name: escaped
+  set_fact: zookeeper_log_escaped="{{ zookeeper_log | regex_replace ('/','\/') }}"
+
+- name: edit log file in log4j
+  shell: sed -i "s/zookeeper.log.dir=./zookeeper.log.dir={{ zookeeper_log_escaped }}/" {{ zookeeper_cfg }}/log4j.properties
+  args:
+    warn: no
+
+- name: edit trace file in log4j
+  shell: sed -i "s/zookeeper.tracelog.file=zookeeper_trace.log/zookeeper.tracelog.file=zookeeper_trace.log/" {{ zookeeper_cfg }}/log4j.properties
+  args:
+    warn: no
+
+- name: edit log zkServer.sh
+  shell: sed -i 's/ZOO_LOG_FILE=zookeeper-$USER-server-$HOSTNAME.log/ZOO_LOG_FILE=zookeeper-server.log/' /opt/zookeeper/bin/zkServer.sh
+  args:
+    warn: no
+
+- name: edit out zkServer.sh
+  shell: sed -i "s/_ZOO_DAEMON_OUT=\"\$ZOO_LOG_DIR\/zookeeper-\$USER-server-\$HOSTNAME.out\"/_ZOO_DAEMON_OUT=\"\${ZOOLOGSDIR}\/zookeeper-server.out\"/" /opt/zookeeper/bin/zkServer.sh
+  args:
+    warn: no
+
+- name: create zookeeper-env.sh
+  shell: echo "export ZOOCFGDIR={{ zookeeper_cfg }}"    > {{ zookeeper_cfg }}/zookeeper-env.sh
+
+- name: add lod to zookeeper-env.sh
+  shell: echo "export ZOOLOGSDIR={{ zookeeper_log }}" >> {{ zookeeper_cfg }}/zookeeper-env.sh
+
+- name: add dat to zookeeper-env.sh
+  shell: echo "export ZOO_DATADIR={{ zookeeper_dat }}" >> {{ zookeeper_cfg }}/zookeeper-env.sh
+
+- name: add lod to zookeeper-env.sh
+  shell: echo "export ZOO_LOG_DIR={{ zookeeper_datlog }}" >> {{ zookeeper_cfg }}/zookeeper-env.sh
+
+- name: create std java.env
+  shell: echo "export JVMFLAGS='-Xms128M -Xmx1G -Xloggc:{{ zookeeper_log }}/zookeeper-gc.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=16 -XX:GCLogFileSize=16M -verbose:gc -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintTenuringDistribution -XX:+PrintGCApplicationStoppedTime -XX:+PrintGCApplicationConcurrentTime -XX:+PrintSafepointStatistics -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled'" > {{ zookeeper_cfg }}/java.env
+  when: zookeeper_auth is not defined
+
+- name: create sec java.env
+  shell: echo "export JVMFLAGS='-Xms128M -Xmx1G -Xloggc:{{ zookeeper_log }}/zookeeper-gc.log -Djava.security.auth.login.config={{ zookeeper_cfg }}/jaas.cfg -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=16 -XX:GCLogFileSize=16M -verbose:gc -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -XX:+PrintGCDetails -XX:+PrintTenuringDistribution -XX:+PrintGCApplicationStoppedTime -XX:+PrintGCApplicationConcurrentTime -XX:+PrintSafepointStatistics -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled'" > {{ zookeeper_cfg }}/java.env
+  when: zookeeper_auth is defined and zookeeper_auth == 'digest'
+
+- name: create zookeeper myid
+  shell: echo "{{ hostvars[inventory_hostname].ansible_dcs_id }}" > {{ zookeeper_dat }}/myid
+
+- name: config /usr/lib/systemd/system/{{ zookeeper_service }}.service
+  template: src=zookeeper.service.j2 dest=/usr/lib/systemd/system/{{ zookeeper_service }}.service owner=root group=root mode=0600
+
+#- name: zookeeper cgroup config
+#  template: src=zookeeper.cgroup.j2 dest=/etc/cgconfig.d/{{ zookeeper_service }}.conf
+
+- name: Change owner {{ zookeeper_cfg }}
+  file:
+    path: "{{ zookeeper_cfg }}"
+    state: directory
+    recurse: yes
+    owner: zookeeper
+    group: zookeeper
+
+- name: Change owner {{ zookeeper_dat }}
+  file:
+    path: "{{ zookeeper_dat }}"
+    state: directory
+    recurse: yes
+    owner: zookeeper
+    group: zookeeper
+
+- name: daemon reload
+  command: systemctl daemon-reload
+
+- name: start zookeeper service
+  throttle: 1
+  service: name={{ zookeeper_service }} state=restarted enabled=yes
+
+- name: Validate whether zookeeper service is running or not 
+  shell: echo ruok | nc 127.0.0.1 {{ zookeeper_clientPort }}
+  args:
+    executable: /bin/bash
+  register: zookeeper_answer
+  retries: 5
+  delay: 5
+  until: zookeeper_answer.stdout.find('imok') != -1 
+
+- debug: var=zookeeper_answer.stdout
+
+- name: init zookeeper client java classes
+  command: /opt/zookeeper/bin/zkCli.sh -server 127.0.0.1:{{ zookeeper_clientPort }} quit
+
+- block:
+
+  - name: save classpath
+    shell: ps -ef | grep -v grep | grep {{ zookeeper_service }} | sed 's/^.*-cp //' | sed 's/{{ ":" }} .*//'
+    register: zk_classpath
+    ignore_errors: true
+
+#- debug: msg="{{ zk_classpath.stdout }}"
+
+  - name: save digest
+    shell: java -cp {{ zk_classpath.stdout }}{{ ":" }} org.apache.zookeeper.server.auth.DigestAuthenticationProvider {{ zookeeper_digest_user }}:{{ zookeeper_digest_password }} | sed 's/^.*->//'
+    register: zk_digest
+    ignore_errors: true
+
+#- debug: msg="{{ zk_digest.stdout }}"
+
+#  https://docs.cloudera.com/runtime/7.2.7/zookeeper-security/topics/zookeeper-acls-zookeeper.html
+  - name: set digest permission
+    shell: echo -e "\n\naddauth digest {{ zookeeper_digest_user }}:{{ zookeeper_digest_password }}\nsetAcl -R / digest:{{ zk_digest.stdout }}:cdrwa\n" | /opt/zookeeper/bin/zkCli.sh -server 127.0.0.1:{{ zookeeper_clientPort }}
+    run_once: true
+    args:
+      warn: no
+
+#  - name: set permission /zookeeper/quota
+#    shell: echo -e "addauth digest {{ zookeeper_digest_user }}:{{ zookeeper_digest_password }}\nsetAcl -R /zookeeper/quota digest:{{ zk_digest.stdout }}:cdrwa,world:anyone:r\n" | /opt/zookeeper/bin/zkCli.sh -server 127.0.0.1:{{ zookeeper_clientPort }}
+#    run_once: true
+#    args:
+#      warn: no
+
+#  - name: set permission /zookeeper/config
+#    shell: echo -e "addauth digest {{ zookeeper_digest_user }}:{{ zookeeper_digest_password }}\nsetAcl -R /zookeeper/config world:anyone:r\n" | /opt/zookeeper/bin/zkCli.sh -server 127.0.0.1:{{ zookeeper_clientPort }}
+#    run_once: true
+#    args:
+#      warn: no
+
+  when: zookeeper_auth is defined and zookeeper_auth == 'digest'
+
+- name: set zookeeper rules in iptables
+  block:
+
+  - name: set zookeeper rules in iptables
+    iptables:
+      chain: INPUT
+      protocol: tcp
+      destination_port: "{{ zookeeper_clientPort }}"
+      source: '127.0.0.1'
+      jump: ACCEPT
+      comment: Accept Zookeeper client port connections.
+
+  - name: set zookeeper rules in iptables
+    iptables:
+      chain: INPUT
+      protocol: tcp
+      destination_port: "{{ zookeeper_clientPort }}"
+      source: "{{ hostvars[item].ansible_set_ip }}"
+      jump: ACCEPT
+      comment: Accept Zookeeper client port connections.
+    with_items: "{{ groups['dcs_cluster'] }}"
+
+  - name: set zookeeper rules in iptables
+    iptables:
+      chain: INPUT
+      protocol: tcp
+      destination_port: "{{ zookeeper_clientPort }}"
+      source: '0.0.0.0.0/0'
+      jump: REJECT
+      comment: Reject Zookeeper client port connections.
+
+  - name: set zookeeper rules in iptables
+    iptables:
+      chain: INPUT
+      protocol: tcp
+      destination_port: "{{ zookeeper_adminPort }}"
+      source: '127.0.0.1'
+      jump: ACCEPT
+      comment: Accept Zookeeper admin port connections.
+
+  - name: set zookeeper rules in iptables
+    iptables:
+      chain: INPUT
+      protocol: tcp
+      destination_port: "{{ zookeeper_adminPort }}"
+      source: "{{ hostvars[item].ansible_set_ip }}"
+      jump: ACCEPT
+      comment: Accept Zookeeper admin port connections.
+    with_items: "{{ groups['dcs_cluster'] }}"
+
+  - name: set zookeeper rules in iptables
+    iptables:
+      chain: INPUT
+      protocol: tcp
+      destination_port: "{{ zookeeper_adminPort }}"
+      source: '0.0.0.0.0/0'
+      comment: Reject Zookeeper admin port connections.
+      jump: REJECT
+
+  # see  iptables -nvL
+
+  when: zookeeper_iptables|default(false)|bool == true
+
+- name: logrotate file
+  template: src=zookeeper.logrotate.j2 dest=/etc/logrotate.d/{{ zookeeper_service }} owner=root group=root mode=0644
+
+- name: create backup
+  shell: "{{ zookeeper_backup_home }}/{{ zookeeper_service }}/zk_backup.sh"
+
+- name: creates cron task for {{ zookeeper_service }} backup
+  ansible.builtin.cron:
+    name: "Cron Task for {{ zookeeper_service }} Backup"
+    minute: "5"
+    hour: "*/4"
+    user: root
+    job: "{{ zookeeper_backup_home }}/{{ zookeeper_service }}/zk_backup.sh 1>/dev/null 2>&1"
+
+- name: add alias nocomments to .bashrc
+  lineinfile:
+    path: ~/.bashrc
+    line: alias nocomments="sed -e :a -re 's/<!--.*?-->//g;/<!--/N;//ba' | grep -v -P '^\s*(#|;|$)'"
+    state: present
+    create: yes
+
+- name: add alias zoocheck to .bashrc
+  lineinfile:
+    path: ~/.bashrc
+    line: alias zoocheck='echo ruok | nc 127.0.0.1 {{ zookeeper_clientPort }} | grep "$"'
+    state: present
+    create: yes
+
+- name: add alias zoo to .bashrc
+  lineinfile:
+    path: ~/.bashrc
+    line: alias zoo='srvs=$(cat {{ zookeeper_cfg }}/zoo.cfg | grep -P "server.*:" | sed "s/^.*=//" | sed "s/:.*$//"); all=$(for srv in ${srvs}; do zkmode=$(echo srvr | nc ${srv} {{ zookeeper_clientPort }} 2>/dev/null | grep Mode | sed "s/Mode..//"); echo -e "${srv} ${zkmode}"; if [ "${zkmode}" == "leader" ]; then flwrs=$(echo mntr | nc ${srv} {{ zookeeper_clientPort }} | grep --colour=never followers); echo -e "${flwrs}"; fi; done;); echo -e "${all}" | sort | grep "leader\|$"'
+    state: present
+    create: yes
+
+- name: add alias zoovers to .bashrc
+  lineinfile:
+    path: ~/.bashrc
+    line: alias zoovers='echo srvr | nc 127.0.0.1 {{ zookeeper_clientPort }} | grep version'
+    state: present
+    create: yes
+
+- name: connect string to zookeeper
+  debug: msg="/opt/zookeeper/bin/zkCli.sh -server 127.0.0.1:{{ zookeeper_clientPort }}"
+
+- name: set auth digest after connect to zookeeper
+  debug: msg="addauth digest {{ zookeeper_digest_user }}:{{ zookeeper_digest_password }}"
+  when: zookeeper_auth is defined and zookeeper_auth == 'digest'
+
+- name: Current Zookeeper Cluster
+  shell: srvs=$(cat {{ zookeeper_cfg }}/zoo.cfg | grep -P "server.*:" | sed "s/^.*=//" | sed "s/:.*$//"); all=$(for srv in ${srvs}; do zkmode=$(echo srvr | nc ${srv} {{ zookeeper_clientPort }} 2>/dev/null | grep Mode | sed "s/Mode..//"); echo -e "${srv} ${zkmode}"; if [ "${zkmode}" == "leader" ]; then flwrs=$(echo mntr | nc ${srv} {{ zookeeper_clientPort }} | grep --colour=never followers); echo -e "${flwrs}"; fi; done;); echo -e "${all}" | sort | sed 's/\t/ /'
+  register: zoo_config
+  run_once: true
+
+- debug: var=zoo_config.stdout_lines
+  run_once: true
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }} by {{ who.stdout }}"
+  when: ansible_logget is undefined or ansible_logget == true

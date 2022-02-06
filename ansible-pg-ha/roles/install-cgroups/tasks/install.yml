@@ -1,0 +1,61 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+
+- name: install grubby
+  package: name=grubby state=present
+  when: cgroups == true and (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky')
+
+- name: install libcgroup-tools
+  package: name=libcgroup-tools state=present
+  when: cgroups == true and (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky')
+
+- name: cgconfig service start
+  service: name=cgconfig state=started enabled=yes
+  when: cgroups == true and cgroups_version == 'v1' and (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky')
+
+#- name: Change owner /opt/etcd3
+#  file:
+#    path: '/opt/etcd'
+#    state: directory
+#    recurse: yes
+#    owner: etcd
+#    group: etcd
+
+#- name: remove link /usr/local/bin/etcd
+#  shell: rm -f /usr/local/bin/etcd
+#  args:
+#    warn: no
+
+#- name: create dir cfg
+#  file:
+#    path: "{{ ansible_etcd_config_dir }}"
+#    state: directory
+#    owner: etcd
+#    group: etcd
+
+#- name: daemon reload
+#  command: /usr/bin/systemctl daemon-reload
+
+#- name: etcd service
+#  service: name=etcd state=started enabled=yes
+
+- name: Current cgroups
+  shell: systemd-cgls --no-pager
+  register: cgroups_list
+  run_once: true
+
+- debug: var=cgroups_list.stdout_lines
+  run_once: true
+
+- name: pause 10 seconds
+  pause:
+    seconds: 10
+  run_once: true
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"

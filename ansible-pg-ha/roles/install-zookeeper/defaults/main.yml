@@ -1,0 +1,32 @@
+zokeeper_bin: "/opt/zookeeper"
+zookeeper_cfg: "/etc/{{ zookeeper_service }}"
+zookeeper_log: "/var/log/{{ zookeeper_service }}"
+zookeeper_data:   "/var/lib/{{ zookeeper_service }}"
+zookeeper_dat:    "{{ zookeeper_data }}/data"
+zookeeper_datlog: "{{ zookeeper_data }}/log"
+
+zookeeper_service: zookeeper
+zookeeper_clientPort: '2181'
+zookeeper_adminPort: '8081'
+# curl 'http://127.0.0.1:8081/commands'
+# curl 'http://127.0.0.1:8081/commands/environment'
+zookeeper_preAllocSize: '1024'
+zookeeper_serverPort: '2888:3887'
+
+#zookeeper_service: zookeeperB
+#zookeeper_clientPort: '2182'
+#zookeeper_adminPort: '8082'
+#zookeeper_preAllocSize: '1024'
+#zookeeper_serverPort: '3888:4887'
+
+zookeeper_backup_home: "/backups"
+zookeeper_backup_rotation_days: 14
+
+zookeeper_iptables: false
+
+zookeeper_cgroup: true
+
+ZOOKEEPER1_URL: "https://dlcdn.apache.org/zookeeper/zookeeper-{{ zookeeper_version }}"
+ZOOKEEPER2_URL: "https://downloads.apache.org/zookeeper/zookeeper-{{ zookeeper_version }}"
+ZOOKEEPER3_URL: "https://archive.apache.org/dist/zookeeper/zookeeper-{{ zookeeper_version }}"
+ZOOKEEPER_DOWNLOAD_URL: "{{ ZOOKEEPER3_URL }}"

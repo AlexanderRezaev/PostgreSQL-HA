@@ -1,0 +1,17 @@
+---
+  - hosts: [etcd_cluster]
+    become: yes
+
+    vars:
+
+      installation: offline
+
+      DCS: etcd3	# may be : etcd, etcd3, consul, zookeeper, exhibitor, kubernetes, raft
+
+      etcd3_version: '3.3.25'
+      etcd3_src: "/root/packages/etcd3/etcd-v{{ etcd3_version }}-linux-amd64.tar.gz"
+
+    roles:
+
+      - install-etcd3
+# journalctl -o short-iso -u etcd.service -l --no-pager

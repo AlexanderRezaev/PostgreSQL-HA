@@ -1,0 +1,53 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+#  tags: [pg_profile_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+
+- name: Check all servers PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ groups['postgresql_cluster'] | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - ipsec must be performed on ALL machines group=postgresql_cluster only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+
+- name: Create dir /tmp/pg
+  file:
+    path: "/tmp/pg"
+    state: directory
+
+- name: Copy pg_profile package
+  copy:
+    src: "{{ postgresql_src }}/pg_profile--0.3.4.tar.gz"
+    dest: "/tmp/pg"
+
+- name: Install pg_profile package
+  shell: "tar xzf /tmp/pg/pg_profile--0.3.4.tar.gz --directory $(pg_config --sharedir)/extension"
+  args:
+    warn: no
+
+- name: drop extension pg_profile
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -d pgedb -c "DROP SCHEMA IF EXISTS profile CASCADE; DROP EXTENSION IF EXISTS pg_profile CASCADE;"
+  args:
+    warn: no
+
+- name: creates cron task for log_switch
+  ansible.builtin.cron:
+    name: "Cron Task for pg_profile"
+    minute: "*/30"
+    user: postgres
+    state: absent
+    job: psql -p {{ postgresql_port }} -d pgedb -c "SELECT profile.take_sample();" 2>&1 1>/dev/null || true
+
+- name: Recursively remove directory /tmp/pg
+  file:
+    path: /tmp/pg
+    state: absent
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+#  tags: [pg_profile_install]

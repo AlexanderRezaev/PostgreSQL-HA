@@ -1,0 +1,34 @@
+group zookeeper {
+    # user and group "zookeeper" can manage these cgroups
+    perm {
+        task {
+            uid = zookeeper;
+            gid = zookeeper;
+            fperm = 774;
+        }
+        admin {
+            uid = zookeeper;
+            gid = zookeeper;
+            dperm = 775;
+            fperm = 774;
+        }
+    }
+    # limit memory to 1 GB and disable swap
+    memory {
+        memory.limit_in_bytes = 1G;
+        memory.memsw.limit_in_bytes = 1G;
+    }
+#    blkio {
+#           blkio.weight = 1000;
+#    }
+    # limit CPU time to 0.25 seconds out of each second
+    cpu {
+        cpu.cfs_period_us = 1000000;
+        cpu.cfs_quota_us = 250000;
+    }
+    # only CPUs 0-3 and memory node 0 can be used
+#    cpuset {
+#       cpuset.cpus = 0-1;
+#        cpuset.mems = 0;
+#    }
+}

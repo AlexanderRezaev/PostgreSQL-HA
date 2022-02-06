@@ -1,0 +1,306 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+
+- name: install chrony
+  package:
+    name: chrony
+    state: present
+
+- name: EPEL Repo
+  yum:
+    name: epel-release
+    state: latest
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Rocky'
+
+#- name: EPEL Repo
+#  shell: dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+#  args:
+#    warn: no
+#  when: ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux'
+
+- name: install ioping
+  package:
+    name: ioping
+    state: present
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Rocky'
+
+- name: install moreutils package in CentOS
+  shell: dnf --enablerepo=powertools install moreutils -y
+  args:
+    warn: no
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Rocky'
+
+- name: Ensure group "etcd" exists
+  group:
+    name: etcd
+    state: present
+
+- name: Add the user 'etcd'
+  user:
+    name: etcd
+    shell: /sbin/nologin
+    comment: etcd service
+    group: etcd
+    state: present
+
+- name: offline installation
+  block:
+
+  - name: check distribution
+    local_action: stat path="{{ etcd3_src }}"
+    register: someFile
+    failed_when: not someFile.stat.exists
+
+  - name: copy etcd3 tar
+    copy:
+      src: "{{ etcd3_src }}"
+      dest: "/opt/etcd-v{{ etcd3_version }}-linux-amd64.tar.gz"
+      force: no
+
+  when:	installation ==	'offline'
+
+- name: online installation           
+  block:
+
+#  - debug: var="curl -L {{ ETCD_DOWNLOAD_URL }}/v{{ etcd3_version }}/etcd-v{{ etcd3_version }}-linux-amd64.tar.gz -o /opt/etcd-v{{ etcd3_version }}-linux-amd64.tar.gz"
+#    run_once: true
+
+  - name: download
+    shell: curl -L "{{ ETCD_DOWNLOAD_URL }}/v{{ etcd3_version }}/etcd-v{{ etcd3_version }}-linux-amd64.tar.gz" -o "/opt/etcd-v{{ etcd3_version }}-linux-amd64.tar.gz"
+    args:
+      warn: no
+
+  when: installation == 'online'
+
+- name: extract etcd3 tar
+  unarchive:
+    src: "/opt/etcd-v{{ etcd3_version }}-linux-amd64.tar.gz"
+    dest: '/opt'
+    remote_src: yes
+
+- name: remove link /opt/etcd
+  shell: rm -rf /opt/etcd
+  args:
+    warn: no
+
+- name: Create a symbolic link /opt/etcd
+  file:
+    src: "/opt/etcd-v{{ etcd3_version }}-linux-amd64"
+    dest: '/opt/etcd'
+    owner: etcd
+    group: etcd
+    state: link
+
+- name: Change owner /opt/etcd3
+  file:
+    path: '/opt/etcd'
+    state: directory
+    recurse: yes
+    owner: etcd
+    group: etcd
+
+- name: remove link /usr/local/bin/etcd
+  shell: rm -f /usr/local/bin/etcd
+  args:
+    warn: no
+
+- name: Create a symbolic link /usr/local/bin/etcd
+  file:
+    src: "/opt/etcd/etcd"
+    dest: '/usr/local/bin/etcd'
+    owner: etcd
+    group: etcd
+    state: link
+
+- name: remove link /usr/local/bin/etcdctl
+  shell: rm -f /usr/local/bin/etcdctl
+  args:
+    warn: no
+
+- name: Create a symbolic link /usr/local/bin/etcdctl
+  file:
+    src: "/opt/etcd/etcdctl"
+    dest: '/usr/local/bin/etcdctl'
+    owner: etcd
+    group: etcd
+    state: link
+
+- name: create dir cfg
+  file:
+    path: "{{ ansible_etcd_config_dir }}"
+    state: directory
+    owner: etcd
+    group: etcd
+
+- name: create dir data
+  file:
+    path: "{{ ansible_etcd_data_dir }}"
+    state: directory
+    owner: etcd
+    group: etcd
+    mode: 0700
+
+#- name: create dir data log
+#  file:
+#    path: "{{ etcd3_datlog }}"
+#    state: directory
+#    owner: etcd3
+#    group: etcd3
+
+#- name: create dir log
+#  file:
+#    path: "{{ etcd3_log }}"
+#    state: directory
+#    owner: etcd3
+#    group: etcd3
+
+#- name: create dir backups
+#  file:
+#    path: "{{ etcd3_backup_home }}/{{ zookeeper_service }}"
+#    state: directory
+#    owner: root
+#    group: root
+#    mode: o-rwx
+
+#- name: create dir archives
+#  file:
+#    path: "{{ etcd3_archive_mount }}"
+#    state: directory
+#    owner: root
+#    group: root
+#    mode: o-rwx
+#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- name: unmount {{ etcd3_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
+#  mount:
+#    src: "{{ etcd3_archive_disk }}"
+#    path: "{{ etcd3_archive_mount }}"
+#    state: unmounted
+#    fstab: /tmp/zktmp.fstab
+#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- include: archiving_disk_state_reset.yml
+#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- include: archiving_disk_state_import.yml
+#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- name: mount {{ etcd3_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
+#  mount:
+#    src: "{{ etcd3_archive_disk }}"
+#    path: "{{ etcd3_archive_mount }}"
+#    fstype: xfs
+#    state: mounted
+#    fstab: /tmp/zktmp.fstab
+#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- name: unmount {{ etcd3_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
+#  mount:
+#    src: "{{ etcd3_archive_disk }}"
+#    path: "{{ etcd3_archive_mount }}"
+#    state: unmounted
+#    fstab: /tmp/zktmp.fstab
+#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- include: archiving_disk_state_export.yml
+#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+
+#- name: template archiving
+#  template: src=zk_archiving.sh dest="{{ etcd3_backup_home }}/{{ zookeeper_service }}/zk_archiving.sh" mode=0700
+#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+
+- name: Configure /etc/hosts. Comment on 127.0.1.1
+  lineinfile:
+    dest: "/etc/hosts"
+    regexp: '(?i)^(127\.0\.1\.1 .*)'
+    line: '# \1'
+    backrefs: yes
+    state: present
+
+- name: Configure /etc/hosts.
+  lineinfile:
+    dest: "/etc/hosts"
+    line: "{{ hostvars[item].ansible_set_ip }}	{{ hostvars[item].ansible_set_fqdn }}	{{ item }}"
+    state: present
+    create: yes
+  with_items: "{{ groups['dcs_cluster'] }}"
+
+- name: template config
+  vars:
+    ansible_etcd_host_id: "{{ hostvars[inventory_hostname_short].ansible_dcs_id }}"
+    ansible_etcd_host_ip: "{{ hostvars[inventory_hostname_short].ansible_set_ip }}"
+  template:
+    src: etcd.cfg
+    dest: "{{ ansible_etcd_config_dir }}/etcd.cfg"
+    owner: etcd
+    group: etcd
+    mode: 0600
+  with_items: "{{ groups['dcs_cluster'] }}"
+
+- name: systemd unit file
+  template: src=etcd.service dest=/usr/lib/systemd/system/etcd.service owner=root group=root mode=0600
+
+- name: Change owner {{ ansible_etcd_config_dir }}
+  file:
+    path: "{{ ansible_etcd_config_dir }}"
+    state: directory
+    recurse: yes
+    owner: etcd
+    group: etcd
+
+- name: Change owner {{ ansible_etcd_data_dir }}
+  file:
+    path: "{{ ansible_etcd_data_dir }}"
+    state: directory
+    recurse: yes
+    owner: etcd
+    group: etcd
+
+- name: daemon reload
+  command: /usr/bin/systemctl daemon-reload
+
+- name: etcd service
+  service: name=etcd state=started enabled=yes
+
+#- name: logrotate file
+#  template: src=etcd3.logrotate.j2 dest=/etc/logrotate.d/{{ zookeeper_service }} owner=root group=root mode=0644
+
+#- name: creates cron task for {{ etcd3_service }} backup
+#  ansible.builtin.cron:
+#    name: "Cron Task for {{ etcd3_service }} Backup"
+#    minute: "5"
+#    hour: "*/4"
+#    user: root
+#    job: "{{ etcd3_backup_home }}/{{ zookeeper_service }}/zk_backup.sh 1>/dev/null 2>&1"
+
+- name: add alias nocomments to .bashrc
+  lineinfile:
+    path: ~/.bashrc
+    line: alias nocomments="sed -e :a -re 's/<!--.*?-->//g;/<!--/N;//ba' | grep -v -P '^\s*(#|;|$)'"
+    state: present
+    create: yes
+
+- name: pause 30 seconds
+  pause:
+    seconds: 30
+  run_once: true
+
+- debug: msg="/usr/local/bin/etcdctl cluster-health"
+  run_once: true
+
+- name: Current ETCD Cluster
+  shell: /usr/local/bin/etcdctl cluster-health
+  register: etcd_config
+  run_once: true
+
+- debug: var=etcd_config.stdout_lines
+  run_once: true
+
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"

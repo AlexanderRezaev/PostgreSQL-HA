@@ -1,0 +1,40 @@
+group postgresql {
+    # user and group "postgres" can manage these cgroups
+    perm {
+        task {
+            uid = postgres;
+            gid = postgres;
+            fperm = 774;
+        }
+        admin {
+            uid = postgres;
+            gid = postgres;
+            dperm = 775;
+            fperm = 774;
+        }
+    }
+ 
+    # limit memory to 1 GB and disable swap
+    memory {
+        memory.limit_in_bytes = 1G;
+        memory.memsw.limit_in_bytes = 1G;
+    }
+ 
+    # limit read and write I/O to 10MB/s each on device 8:0
+    blkio {
+        blkio.throttle.read_bps_device = "8:0 10485760";
+        blkio.throttle.write_bps_device = "8:0 10485760";
+    }
+ 
+    # limit CPU time to 0.25 seconds out of each second
+    cpu {
+        cpu.cfs_period_us = 1000000;
+        cpu.cfs_quota_us = 250000;
+    }
+ 
+    # only CPUs 0-3 and memory node 0 can be used
+    cpuset {
+        cpuset.cpus = 0-1;
+        cpuset.mems = 0;
+    }
+}

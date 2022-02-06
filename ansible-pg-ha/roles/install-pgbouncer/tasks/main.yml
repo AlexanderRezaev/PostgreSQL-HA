@@ -1,0 +1,17 @@
+---
+# имя любого tags не должно входить в имя любого tags, кроме себя самого
+
+- debug: msg="Please, specify the --tags"
+  when: "'all' in ansible_run_tags"
+  tags: [pgbouncer_install,pgbouncer_remove]
+
+- meta: end_play
+  when: "'all' in ansible_run_tags"
+  tags: [pgbouncer_install,pgbouncer_remove]
+
+- include: install.yml
+  when: install_pgbouncer == true
+  tags: [pgbouncer_install]
+
+- include: remove.yml
+  tags: [pgbouncer_remove]

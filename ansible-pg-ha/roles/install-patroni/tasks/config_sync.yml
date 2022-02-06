@@ -1,0 +1,436 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [patroni_config_sync]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [patroni_config_sync]
+
+- name: Check all servers DCS & PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ ansible_play_hosts | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - configuring must be performed on ALL machines only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+  tags: [patroni_config_sync]
+
+- name: Configure /etc/hosts.
+  lineinfile:
+    dest: "/etc/hosts"
+    line: "{{ patroni_cluster_ip }}	{{ patroni_fqdn }}	{{ patroni_scope }}"
+    state: present
+    create: yes
+  tags: [patroni_config_sync]
+
+- name: check {{ patroni_admin_login }} in pg_hba
+#  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT MAX(case when user_name::text = '{clsadmin}'::text then 1 else 0 end) FROM pg_hba_file_rules;"
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT MAX(case when ARRAY(SELECT '{{ patroni_admin_login }}') <@ user_name then 1 else 0 end) FROM pg_hba_file_rules;"
+  register: admin_hba_rc
+  args:
+    warn: no
+  tags: [patroni_config_sync]
+
+- name: add {{ patroni_admin_login }} to pg_hba.conf IPv4
+  shell: sed -ir '/# TYPE.*DATABASE.*USER.*ADDRESS.*METHOD/a host    all             {{ patroni_admin_login }}        0.0.0.0\/0               md5' {{ postgresql_data_dir }}/pg_hba.conf
+  when: admin_hba_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [patroni_config_sync]
+
+- name: add {{ patroni_admin_login }} to pg_hba.conf IPv6
+  shell: "sed -ir '/# TYPE.*DATABASE.*USER.*ADDRESS.*METHOD/a host    all             {{ patroni_admin_login }}        ::0/0                   md5                                      # IPv6' {{ postgresql_data_dir }}/pg_hba.conf"
+  when: admin_hba_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [patroni_config_sync]
+
+- name: check {{ patroni_replica_login }} in pg_hba
+#  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT MAX(case when user_name::text = '{clsreplica}'::text then 1 else 0 end) FROM pg_hba_file_rules;"
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT MAX(case when ARRAY(SELECT '{{ patroni_replica_login }}') <@ user_name then 1 else 0 end) FROM pg_hba_file_rules;"
+  register: replica_hba_rc
+  args:
+    warn: no
+  tags: [patroni_config_sync]
+
+- name: add {{ patroni_replica_login }} to pg_hba.conf
+  shell: sed -ir '/# TYPE.*DATABASE.*USER.*ADDRESS.*METHOD/a host    replication     {{ patroni_replica_login }}      0.0.0.0\/0               md5' {{ postgresql_data_dir }}/pg_hba.conf
+  when: replica_hba_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [patroni_config_sync]
+
+- name: add {{ patroni_replica_login }} to pg_hba.conf
+  shell: "sed -ir '/# TYPE.*DATABASE.*USER.*ADDRESS.*METHOD/a host    replication     {{ patroni_replica_login }}      ::0/0                   md5                                      # IPv6' {{ postgresql_data_dir }}/pg_hba.conf"
+  when: replica_hba_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [patroni_config_sync]
+
+- name: postgresql service reloaded
+  service: name=postgresql-{{ postgresql_version }} state=reloaded enabled=no
+  tags: [patroni_config_sync]
+
+- name: check {{ patroni_admin_login }} exists
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '{{ patroni_admin_login }}'"
+  register: sql_rc
+  args: 
+     warn: no
+  tags: [patroni_config_sync]
+
+- name: create login {{ patroni_admin_login }}
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "CREATE USER {{ patroni_admin_login }} WITH LOGIN SUPERUSER INHERIT CREATEDB CREATEROLE PASSWORD '{{ patroni_admin_password }}';"
+  when: sql_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [patroni_config_sync]
+
+- name: check {{ patroni_replica_login }} exists
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '{{ patroni_replica_login }}'"
+  register: sql_rc
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+
+- name: create login {{ patroni_replica_login }}
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "CREATE USER {{ patroni_replica_login }} WITH LOGIN REPLICATION INHERIT PASSWORD '{{ patroni_replica_password }}';"
+  when: sql_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [patroni_config_sync]
+
+- name: pgagent service stop & disable
+  service: name=pgagent_{{ postgresql_version }} state=stopped enabled=no
+  when: install_pgagent == true
+  tags: [patroni_config_sync]
+
+- name: postgresql service stop & disable
+  service: name=postgresql-{{ postgresql_version }} state=stopped enabled=no
+  tags: [patroni_config_sync]
+
+- name: Create synchronous_standby_names
+  template:
+    src: "synchronous_standby_names"
+    dest: "/tmp/synchronous_standby_names"
+    owner: postgres
+    group: postgres
+    mode: 0600
+  tags: [patroni_config_sync]
+
+- name: Read synchronous_standby_names
+  shell: cat /tmp/synchronous_standby_names
+  register: synchronous_standby_names
+  tags: [patroni_config_sync]
+
+- name: postgresql.conf | synchronous_standby_names
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: "synchronous_standby_names = {{ synchronous_standby_names.stdout }}"
+    regexp: '^synchronous_standby_names '
+    insertafter: '^#synchronous_standby_names '
+  tags: [patroni_config_sync]
+
+- name: postgresql.conf | wal_log_hints
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: wal_log_hints = 'on'
+    regexp: '^wal_log_hints '
+    insertafter: '^#wal_log_hints '
+  tags: [patroni_config_sync]
+
+- name: postgresql.conf | synchronous_commit
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: synchronous_commit = 'local'
+#    line: synchronous_commit = 'remote_apply'
+    regexp: '^synchronous_commit '
+    insertafter: '^#synchronous_commit '
+  tags: [patroni_config_sync]
+
+- name: postgresql.conf | cluster_name
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: cluster_name = '{{ patroni_scope }}'
+    regexp: '^cluster_name '
+    insertafter: '^#cluster_name '
+  tags: [patroni_config_sync]
+
+- name: postgresql.conf | listen_addresses
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: listen_addresses = '0.0.0.0'
+    regexp: '^listen_addresses '
+    insertafter: '^#listen_addresses '
+  tags: [patroni_config_sync]
+
+- name: postgresql.conf | wal_level
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: wal_level = 'replica'
+    regexp: '^wal_level '
+    insertafter: '^#wal_level '
+  tags: [patroni_config_sync]
+
+- name: postgresql.conf | max_replication_slots
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: max_replication_slots = 10
+    regexp: '^max_replication_slots '
+    insertafter: '^#max_replication_slots '
+  tags: [patroni_config_sync]
+
+- name: postgresql.conf | max_wal_senders
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: max_wal_senders = 10
+    regexp: '^max_wal_senders '
+    insertafter: '^#max_wal_senders '
+  tags: [patroni_config_sync]
+
+#- name: postgresql.conf | min_wal_size
+#  lineinfile:
+#    path: "{{ postgresql_data_dir }}/postgresql.conf"
+#    line: min_wal_size = 16MB
+#    regexp: '^min_wal_size '
+#    insertafter: '^#min_wal_size '
+#  tags: [patroni_config_sync]
+
+- name: postgresql.conf | hot_standby
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: hot_standby = 'on'
+    regexp: '^hot_standby '
+    insertafter: '^#hot_standby '
+  tags: [patroni_config_sync]
+
+- command: hostname --short
+  register: cls1
+  run_once: true
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 1
+  tags: [patroni_config_sync]
+
+#- debug: var=cls1.stdout
+
+- name: postgresql service start
+  service: name=postgresql-{{ postgresql_version }} state=started enabled=no
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 1 
+  tags: [patroni_config_sync]
+
+- name: clear data on slave servers
+  shell: rm -rf {{ postgresql_data_dir }}/*
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+
+- name: clear wal on slave servers
+  shell: rm -rf {{ postgresql_wal_dir }}/*
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+
+- name: restore postgresql on ansible_set_patroni_id != 1
+#  shell: sudo -iu postgres PGPASSWORD={{ patroni_replica_password }} /usr/pgsql-{{ postgresql_version }}/bin/pg_basebackup --progress --verbose --host='{{ cls1.stdout }}' --port={{ postgresql_port }} --username={{ patroni_replica_login }} --pgdata={{ postgresql_data_dir }} --xlogdir={{ postgresql_wal_dir }} --wal-method=stream --write-recovery-conf
+  shell: sudo -iu postgres PGPASSWORD={{ patroni_replica_password }} /usr/pgsql-{{ postgresql_version }}/bin/pg_basebackup --progress --verbose --host='{{ cls1.stdout }}' --port={{ postgresql_port }} --username={{ patroni_replica_login }} --pgdata={{ postgresql_data_dir }} --waldir={{ postgresql_wal_dir }} --wal-method=stream --write-recovery-conf
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1 and postgresql_on_mounted_disk == true
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+
+- name: restore postgresql on ansible_set_patroni_id != 1
+#  shell: sudo -iu postgres PGPASSWORD={{ patroni_replica_password }} /usr/pgsql-{{ postgresql_version }}/bin/pg_basebackup --progress --verbose --host='{{ cls1.stdout }}' --po$
+  shell: sudo -iu postgres PGPASSWORD={{ patroni_replica_password }} /usr/pgsql-{{ postgresql_version }}/bin/pg_basebackup --progress --verbose --host='{{ cls1.stdout }}' --port={{ postgresql_port }} --username={{ patroni_replica_login }} --pgdata={{ postgresql_data_dir }} --wal-method=stream --write-recovery-conf
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1 and postgresql_on_mounted_disk == false
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+
+- name: edit recovery file pg 11 and below
+  shell: sed -i "s/ port=/ application_name=''{{ inventory_hostname_short }}'' port=/" {{ postgresql_data_dir }}/recovery.conf
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1 and postgresql_version|int <= 11
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+
+- name: edit recovery file pg 12 and above
+  shell: sed -i "s/ port=/ application_name=''{{ inventory_hostname_short }}'' port=/" {{ postgresql_data_dir }}/postgresql.auto.conf
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1 and postgresql_version|int > 11
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+# если error: COPY stream ended before last file was finished
+# то просто поторопились, а сервер тормозит
+
+#- name: edit recovery file pg 12 and above
+#  block:
+
+#  - name: pgpass
+#    shell: echo "{{ cls1.stdout }}:{{ postgresql_port }}:*:{{ patroni_replica_login }}:{{ patroni_replica_password }}" > /var/lib/pgsql/pgpass
+#    args:
+#      warn: no
+
+#  - name: pgpass permission
+#    file:
+#      path: "/var/lib/pgsql/pgpass"
+#      state: file
+#      owner: postgres
+#      group: postgres
+#      mode: 0600
+
+#  - name: add primary_conninfo to postgresql.conf
+#    lineinfile:
+#      path: "{{ postgresql_data_dir }}/postgresql.conf"
+#      line: primary_conninfo = 'user={{ patroni_replica_login }} passfile=/var/lib/pgsql/pgpass host={{ cls1.stdout }} port=5434 sslmode=prefer application_name={{ inventory_hostname_short}}'
+#      regexp: '^primary_conninfo '
+#      insertafter: '^#primary_conninfo '
+
+#  - name: remove primary_conninfo from postgresql.auto.conf
+#    lineinfile:
+#      path: "{{ postgresql_data_dir }}/postgresql.auto.conf"
+#      state: absent
+#      regexp: '^primary_conninfo.*$'
+
+#  when: postgresql_version|int > 11
+#  tags: [patroni_config_sync]
+
+- name: postgresql service start
+  service: name=postgresql-{{ postgresql_version }} state=started enabled=no
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1
+  tags: [patroni_config_sync]
+
+# ----------------------------
+# sync cluster configured
+# ----------------------------
+
+- name: template config /etc/patroni/patroni.yml
+  template:
+    src: patroni_sync.yml
+    dest: /etc/patroni/patroni.yml
+    owner: postgres
+    group: postgres
+    mode: 0600
+  tags: [patroni_config_sync]
+
+- name: patroni.yml correction 1 on postgresql_on_mounted_disk false
+  lineinfile:
+    path: /etc/patroni/patroni.yml
+    line: '#  basebackup:'
+    regexp: '^  basebackup:'
+    insertafter: '^  basebackup:'
+  when: postgresql_on_mounted_disk == false
+  tags: [patroni_config_sync]
+
+- name: patroni.yml correction 2 on postgresql_on_mounted_disk false
+  lineinfile:
+    path: /etc/patroni/patroni.yml                   
+    line: "#    - waldir: {{ postgresql_wal_dir }}"
+    regexp: "^    - waldir: {{ postgresql_wal_dir }}"
+    insertafter: "^    - waldir: {{ postgresql_wal_dir }}"
+  when: postgresql_on_mounted_disk == false
+  tags: [patroni_config_sync]
+
+- name: create dir log
+  file:
+    path: /var/log/patroni
+    state: directory
+    owner: postgres
+    group: postgres
+  tags: [patroni_config_sync]
+
+- name: get host netmask
+  shell: ip -4 address show $(ip route get 1 | awk '{print $5;exit}') | grep 'scope global noprefixroute' | awk '{ print $2 }'
+  register: ansible_host_netmask
+
+- name: Copy Callback Scripts to /etc/patroni
+  template: src={{ item }} dest="/etc/patroni/{{ item }}" mode=0700 owner=postgres group=postgres
+  with_items:
+    - on_reload.sh
+    - on_restart.sh
+    - on_role_change.sh
+    - on_start.sh
+    - on_stop.sh
+  tags: [patroni_config_sync]
+
+- name: Copy Zookeeper Scripts to /etc/patroni
+  template: src={{ item }} dest="/etc/patroni/{{ item }}" mode=0700 owner=postgres group=postgres
+  with_items:
+    - test_scope.sh
+  when: DCS == 'zookeeper'
+  tags: [patroni_config_sync]
+
+- name: Create Cron Task for Zookeeper Priority Set
+  ansible.builtin.cron:
+    name: "Cron Task for {{ DCS }} Priority Set"
+    minute: "*/5"
+    user: root
+    job: ionice -c2 -n0 -p $(pgrep -a java | grep {{ DCS }} | awk '{ print $1 }') 2>&1 1>/dev/null || true
+  when: DCS == 'zookeeper'
+  tags: [patroni_config_sync]
+
+- name: Create Cron Task for Etcd Priority Set
+  ansible.builtin.cron:
+    name: "Cron Task for {{ DCS }} Priority Set"
+    minute: "*/5"
+    user: root
+    job: ionice -c2 -n0 -p $(pgrep -a etcd | awk '{ print $1 }') 2>&1 1>/dev/null || true
+  when: DCS == 'etcd3'
+  tags: [patroni_config_sync]
+
+- name: Create Cron Task for Replication Priority Set
+  ansible.builtin.cron:
+    name: "Cron Task for Replication Priority Set"
+    minute: "*/5"
+    user: root
+    job: renice -n -10 -p $(ps -eaf | grep "postgres" | grep "walsender\|wal sender\|walreceiver\|wal receiver" | awk '{ print $2 }') &>/dev/null || true
+  tags: [patroni_config_sync]
+
+- name: Create Cron Task for Patroni Priority Set
+  ansible.builtin.cron:
+    name: "Cron Task for Patroni Priority Set"
+    minute: "*/5"
+    user: root
+    job: renice -n -15 -p $(ps -eaf | grep -v grep | grep "patroni" | awk '{ print $2 }') &>/dev/null || true
+  tags: [patroni_config_sync]
+
+# Cluster: cls (uninitialized)
+
+#- name : show cluster
+#  shell: /usr/bin/patronictl list
+#  register: patroni_cluster
+#  run_once: true
+#  tags: [patroni_config_sync]
+
+#- debug: var=patroni_cluster.stdout_lines
+#  run_once: true
+#  tags: [patroni_config_sync]
+
+- name : show replication
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -X -c "SELECT application_name,client_addr,usename,state,sync_state,sync_priority,write_lag,flush_lag,replay_lag FROM pg_stat_replication;"
+  register: pg_replication
+  run_once: true
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+
+- debug: var=pg_replication.stdout_lines
+  run_once: true
+  tags: [patroni_config_sync]
+
+- name : show synchronous_commit
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -t -c "SELECT name, setting FROM pg_settings WHERE name ilike 'synchronous_commit';"
+  register: pg_synchronous_commit
+#  run_once: true
+  args:
+     warn: no
+  tags: [patroni_config_sync]
+
+- debug: var=pg_synchronous_commit.stdout
+  run_once: true
+  tags: [patroni_config_sync]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [patroni_config_sync]

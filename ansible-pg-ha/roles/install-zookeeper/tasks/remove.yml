@@ -1,0 +1,65 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [zookeeper_remove]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [zookeeper_remove]
+
+- name: zookeeper service stop
+  service: name={{ zookeeper_service }} state=stopped enabled=no
+  tags: [zookeeper_remove]
+
+- name: service remove
+  ansible.builtin.file:
+    path: /usr/lib/systemd/system/{{ zookeeper_service }}.service
+    state: absent
+  tags: [zookeeper_remove]
+
+- name: logrotate remove   
+  ansible.builtin.file:
+    path: /etc/logrotate.d/{{ zookeeper_service }}
+    state: absent
+  tags: [zookeeper_remove]
+
+- name: remove cron task for {{ zookeeper_service }} backup
+  cron:
+    name: "Cron Task for {{ zookeeper_service }} Backup"
+    state: absent
+  tags: [zookeeper_remove]
+
+- name: remove dir cfg
+  ansible.builtin.file:
+    path: "{{ zookeeper_cfg }}"
+    state: absent
+  tags: [zookeeper_remove]
+
+- name: remove dir data dat
+  ansible.builtin.file:
+    path: "{{ zookeeper_dat }}"
+    state: absent
+  tags: [zookeeper_remove]
+
+- name: remove dir data log
+  ansible.builtin.file:
+    path: "{{ zookeeper_datlog }}"
+    state: absent
+  tags: [zookeeper_remove]
+
+- name: remove dir data
+  ansible.builtin.file:
+    path: "{{ zookeeper_data }}"
+    state: absent
+  tags: [zookeeper_remove]
+
+- name: remove dir log
+  ansible.builtin.file:
+    path: "{{ zookeeper_log }}"
+    state: absent
+  tags: [zookeeper_remove]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [zookeeper_remove]

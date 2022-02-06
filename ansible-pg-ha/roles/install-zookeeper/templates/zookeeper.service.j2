@@ -1,0 +1,33 @@
+[Unit]
+Description=ZooKeeper Service
+Documentation=http://zookeeper.apache.org
+Requires=network.target
+After=network.target time-sync.target
+
+[Service]
+{% if zookeeper_cgroups == true %}
+Slice=zookeeper.slice
+Delegate = cpu io
+{% endif %}
+Type=forking
+SyslogIdentifier={{ zookeeper_service }}
+
+User=zookeeper
+Group=zookeeper
+
+Environment=ZOOCFGDIR={{ zookeeper_cfg }}
+Environment=ZOOLOGSDIR={{ zookeeper_log }}
+Environment=ZOO_DATADIR={{ zookeeper_dat }}
+Environment=ZOO_LOG_DIR={{ zookeeper_datlog }}
+
+ExecStart=/opt/zookeeper/bin/zkServer.sh start /etc/{{ zookeeper_service }}/zoo.cfg
+ExecStop=/opt/zookeeper/bin/zkServer.sh stop /etc/{{ zookeeper_service }}/zoo.cfg
+ExecReload=/opt/zookeeper/bin/zkServer.sh restart /etc/{{ zookeeper_service }}/zoo.cfg
+
+Restart=always
+TimeoutSec=60
+SuccessExitStatus=130 143
+TimeoutStartSec=2min
+
+[Install]
+WantedBy=default.target

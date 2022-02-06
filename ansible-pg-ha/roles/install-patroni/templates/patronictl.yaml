@@ -1,0 +1,13 @@
+dcs_api:
+{% if DCS == 'zookeeper' %}
+  zookeeper://127.0.0.1:{{ zookeeper_clientPort }}
+{% endif %}
+{% if DCS == 'etcd3' %}
+  etcd://127.0.0.1:{{ ansible_etcd_client_port }}
+{% endif %}
+
+namespace: {{ patroni_namespace }}
+scope: {{ patroni_scope }}
+authentication:
+  username: {{ patroni_admin_login }}
+  password: {{ patroni_admin_password }}

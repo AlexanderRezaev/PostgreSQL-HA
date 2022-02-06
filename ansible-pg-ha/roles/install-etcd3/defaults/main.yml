@@ -1,0 +1,9 @@
+ansible_etcd_config_dir: '/etc/etcd'
+ansible_etcd_data_dir: '/var/lib/etcd'
+ansible_etcd_client_port: 2379
+ansible_etcd_peer_port: 2380
+ansible_etcd_cluster_token: etcd-cluster
+
+ETCD_GOOGLE_URL: 'https://storage.googleapis.com/etcd'
+ETCD_GITHUB_URL: 'https://github.com/etcd-io/etcd/releases/download'
+ETCD_DOWNLOAD_URL: "{{ ETCD_GITHUB_URL }}"

@@ -1,0 +1,82 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+
+- name: Check all servers PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ groups['postgresql_cluster'] | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - ipsec must be performed on ALL machines group=postgresql_cluster only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+
+# вообще-то, пакет уже установлен. нужно сконфигурировать
+
+- name: adding existing user postgres to group pgbouncer
+  user:
+    name: postgres
+    groups: pgbouncer
+    append: yes
+
+- name: Add databases connect
+  lineinfile:
+    path: "/etc/pgbouncer/pgbouncer.ini"
+    insertafter: '\[databases\]'
+    firstmatch: yes
+    line: "{{ item }}"
+  with_items:
+    - "* = host={{ inventory_hostname_short }} port={{ postgresql_port }}"
+
+- name: set listen_addr
+  lineinfile:
+    path: "/etc/pgbouncer/pgbouncer.ini"
+    line: listen_addr = 0.0.0.0
+    regexp: '^listen_addr '
+    insertafter: '^#listen_addr '
+
+- name: set auth_type
+  lineinfile:
+    path: "/etc/pgbouncer/pgbouncer.ini"
+    line: auth_type = md5
+    regexp: '^auth_type '
+    insertafter: '^#auth_type '
+
+- name: copy make_userlist.sh
+  template:
+    src: make_userlist.sh
+    dest: /etc/pgbouncer/make_userlist.sh
+    owner: pgbouncer
+    group: pgbouncer
+    mode: 0750
+
+- name: Create userlist.txt file
+  become_user: postgres
+  shell: "/etc/pgbouncer/make_userlist.sh"
+  args:
+    warn: no
+
+- name: move file /tmp/userlist.txt to /etc/pgbouncer/userlist.txt
+  shell: "mv /tmp/userlist.txt /etc/pgbouncer/userlist.txt"
+  args:
+    warn: no
+
+- name: set permission
+  file:
+    path: "/etc/pgbouncer"
+    state: directory
+    recurse: yes
+    owner: pgbouncer
+    group: pgbouncer
+
+- name: set permission
+  file:
+    path: "/etc/pgbouncer/userlist.txt"
+    state: file
+    mode: 0600
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"

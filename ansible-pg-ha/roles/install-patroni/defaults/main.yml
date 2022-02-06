@@ -1,0 +1,2 @@
+patroni_replica_synchronous: false # pg
+#patroni_replica_synchronous: true # patroni

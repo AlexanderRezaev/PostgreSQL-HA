@@ -1,0 +1,138 @@
+---
+  - hosts: [dcs_cluster,postgresql_cluster]
+    become: yes
+    any_errors_fatal: true
+
+    vars:
+
+#      installation: offline
+      installation: online
+      cgroups: true
+      cgroups_version: "v1"
+
+#      DCS: zookeeper    # may be : etcd, etcd3, consul, zookeeper, exhibitor, kubernetes, raft
+      DCS: etcd3        # may be : etcd, etcd3, consul, zookeeper, exhibitor, kubernetes, raft
+
+      zookeeper_version: '3.6.3'
+      zookeeper_src: "/root/packages/zookeeper/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz"
+      zookeeper_service: zookeeper
+      zookeeper_cgroups: true
+# zoo
+
+      etcd3_version: '3.3.25'
+      etcd3_src: "/root/packages/etcd3/etcd-v{{ etcd3_version }}-linux-amd64.tar.gz"
+      etcd3_cgroups: true
+# etcdctl cluster-health
+
+      postgresql_version: "14"
+      postgresql_src: "/root/packages/postgres/PG{{ postgresql_version }}"
+      postgresql_port: 5434
+      postgresql_cgroups: true
+# systemd-cgls --no-pager 
+
+      postgresql_packages:
+#        - postgresql10-libs-10.19-1PGDG.rhel8.x86_64.rpm
+#        - postgresql10-10.19-1PGDG.rhel8.x86_64.rpm
+#        - postgresql10-server-10.19-1PGDG.rhel8.x86_64.rpm
+#        - postgresql10-contrib-10.19-1PGDG.rhel8.x86_64.rpm
+#        - postgresql10-plperl-10.19-1PGDG.rhel8.x86_64.rpm
+#        - postgresql12-libs-12.9-1PGDG.rhel8.x86_64.rpm
+#        - postgresql12-12.9-1PGDG.rhel8.x86_64.rpm
+#        - postgresql12-server-12.9-1PGDG.rhel8.x86_64.rpm
+#        - postgresql12-contrib-12.9-1PGDG.rhel8.x86_64.rpm
+#        - postgresql12-plperl-12.9-1PGDG.rhel8.x86_64.rpm
+#        - postgresql13-libs-13.5-1PGDG.rhel8.x86_64.rpm
+#        - postgresql13-13.5-1PGDG.rhel8.x86_64.rpm
+#        - postgresql13-server-13.5-1PGDG.rhel8.x86_64.rpm
+#        - postgresql13-contrib-13.5-1PGDG.rhel8.x86_64.rpm
+#        - postgresql13-plperl-13.5-1PGDG.rhel8.x86_64.rpm
+        - postgresql14-libs-14.1-1PGDG.rhel8.x86_64.rpm
+        - postgresql14-14.1-1PGDG.rhel8.x86_64.rpm
+        - postgresql14-server-14.1-1PGDG.rhel8.x86_64.rpm
+        - postgresql14-contrib-14.1-1PGDG.rhel8.x86_64.rpm
+        - postgresql14-plperl-14.1-1PGDG.rhel8.x86_64.rpm
+
+      install_pgagent: false
+      install_pgbouncer: false
+      install_pgpool: false
+
+      postgresql_addendum_version:
+#        - pgagent_10-4.2.1-0.rhel8.x86_64.rpm
+#        - pgpool-II-10-4.1.4-1.rhel8.x86_64.rpm
+#        - pgpool-II-10-extensions-4.1.4-1.rhel8.x86_64.rpm
+#        - pgagent_12-4.2.1-0.rhel8.x86_64.rpm
+#        - pgpool-II-12-4.1.4-1.rhel8.x86_64.rpm
+#        - pgpool-II-12-extensions-4.1.4-1.rhel8.x86_64.rpm
+#        - pgagent_13-4.2.1-0.rhel8.x86_64.rpm
+#        - pgpool-II-13-4.1.4-1.rhel8.x86_64.rpm
+#        - pgpool-II-13-extensions-4.1.4-1.rhel8.x86_64.rpm
+#        - pgagent_14-4.2.1-1.rhel8.x86_64.rpm
+#        - pgpool-II-pg14-extensions-4.3.0-1.rhel8.x86_64.rpm
+
+      postgresql_addendum_common:
+#        - pgbouncer-1.16.1-2.rhel8.x86_64.rpm
+# next line for postgresql_version >= 14
+#        - pgpool-II-4.3.0-1.rhel8.x86_64.rpm
+#        - pgpool-II-pcp-4.3.0-1.rhel8.x86_64.rpm
+
+
+      postgresql_on_mounted_disk: false
+      postgresql_pgpool_password: P@ssw0rd
+
+      postgresql_hba:
+        - { type: '#host', database: all,         user: foo,     address: '0.0.0.0/0',      method: reject }
+        - { type: host,    database: all,         user: foo,     address: '0.0.0.0/0',      method: md5    }
+#        - { type: host,    database: all,         user: pgpool,  address: '0.0.0.0/0',      method: md5    }
+#        - { type: host,    database: all,         user: pgagent, address: '127.0.0.1/32',   method: md5    }
+        - { type: local,   database: all,         user: all,     address: '',               method: peer,   tag: 'unix socket' }
+        - { type: host,    database: all,         user: all,     address: '127.0.0.1/32',   method: ident  }
+        - { type: host,    database: all,         user: all,     address: '::1/128',        method: ident,  tag: 'IPv6' }
+        - { type: local,   database: replication, user: all,     address: '',               method: peer,   tag: 'unix socket' }
+        - { type: host,    database: replication, user: all,     address: '127.0.0.1/32',   method: ident  }
+        - { type: host,    database: replication, user: all,     address: '::1/128',        method: ident,  tag: 'IPv6' }
+        - { type: host,    database: all,         user: all,     address: 'all',            method: md5 }
+#        - { type: host,    database: all,         user: all,     address: '0.0.0.0/0',      method: 'ldap ldapserver="lab-dc.lab.local lab-dc.lab.local" ldapprefix="" ldapsuffix="@LAB.LOCAL"',  tag: 'LDAP Authentification' }
+
+      psycopg_version: 3
+      patroni_version: 2.1.2
+      patroni_src: "/root/packages/patroni/{{ patroni_version }}"
+
+      patroni_namespace: "/patroni"
+      patroni_scope: "o8-cls"
+      patroni_fqdn: "o8-cls.lab.local"
+      patroni_cluster_ip: "172.27.172.206"
+      patroni_admin_login:      "clsadmin"
+      patroni_admin_password:   "P@ssw0rd"
+      patroni_replica_login:    "clsreplica"
+      patroni_replica_password: "P@ssw0rd"
+
+      patroni_log: /var/log/patroni/patroni.log
+      patroni_packages:
+# 2.1.1   python3-certifi Нужен только для OracleLinux  https://yum.oracle.com/repo/OracleLinux/OL8/developer/x86_64/getPackage
+#        - python3-certifi-2018.10.15-5.0.1.el8.noarch.rpm
+#        - python3-psycopg2-2.8.6-1.rhel8.x86_64.rpm
+#        - python3-cdiff-1.0-1.rhel8.noarch.rpm
+#        - python3-ydiff-1.2-10.rhel8.noarch.rpm
+#        - patroni-2.1.1-1.rhel8.x86_64.rpm
+#        - python3-boto-2.49.0-7.rhel8.noarch.rpm
+#        - patroni-aws-2.1.1-1.rhel8.x86_64.rpm
+#        - python3-kazoo-2.8.0-1.rhel8.noarch.rpm
+#        - python3-etcd-0.4.5-20.rhel8.noarch.rpm
+#        - patroni-zookeeper-2.1.1-1.rhel8.x86_64.rpm
+#        - patroni-etcd-2.1.1-1.rhel8.x86_64.rpm
+
+      pg_profile_package:
+        - pg_profile--0.3.4.tar.gz
+
+    roles:
+
+      - install-cgroups
+      - install-ipsec
+      - install-zookeeper
+      - install-etcd3
+      - install-postgres
+      - install-pgpool
+      - install-pgbouncer
+      - install-patroni
+      - install-pg_profile
+      - install-ipsec

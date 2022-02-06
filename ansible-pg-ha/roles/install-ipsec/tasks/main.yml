@@ -1,0 +1,136 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [ipsec_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [ipsec_install]
+
+- name: Check all servers DCS & PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ groups['ipsec_enable'] | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - ipsec must be performed on ALL machines group=ipsec_enable only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+  tags: [ipsec_install]
+
+- debug: msg="{{ ansible_distribution }}"
+  tags: [ipsec_install]
+
+- name: Configure /etc/hosts.
+  lineinfile:
+    dest: "/etc/hosts"
+    line: "{{ hostvars[item].ansible_set_ip }}	{{ hostvars[item].ansible_set_fqdn }}	{{ item }}"
+    state: present
+    create: yes
+  with_items: "{{ groups['ipsec_enable'] }}"
+  tags: [ipsec_install]
+
+- name: Install the latest version of libreswan ipsec
+  dnf:
+    name: libreswan
+    state: latest
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky'
+  tags: [ipsec_install]
+
+- name: Install the latest version of libreswan ipsec
+  apt:
+    name: libreswan
+    state: latest
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+  tags: [ipsec_install]
+
+- name: Check if IPSec is initialized on CentOS.
+  stat:
+    path: "/etc/ipsec.d/cert9.db"
+  register: ipsec_init_c
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky'
+  tags: [ipsec_install]
+
+- name: Check if IPSec is initialized on Ubuntu.
+  stat:
+    path: "/var/lib/ipsec/nss/cert9.db"
+  register: ipsec_init_u
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+  tags: [ipsec_install]
+
+- name: ipsec initnss
+  shell: ipsec initnss --nssdir /etc/ipsec.d
+  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'Rocky') or ansible_distribution == 'OracleLinux' and not ipsec_init_c.stat.exists
+  tags: [ipsec_install]
+
+- name: ipsec initnss
+  shell: ipsec initnss --nssdir /var/lib/ipsec/nss
+  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and not ipsec_init_u.stat.exists
+  tags: [ipsec_install]
+
+- name: Check if IPSec hostkey is initialized.
+  stat:
+    path: "/etc/ipsec.d/hostkey.secrets"
+  register: ipsec_hostkey
+  tags: [ipsec_install]
+
+- name: ipsec newhostkey
+#  shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
+  shell: ipsec newhostkey --nssdir /etc/ipsec.d
+  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'Rocky') or ansible_distribution == 'OracleLinux' and not ipsec_hostkey.stat.exists
+  tags: [ipsec_install]
+
+- name: ipsec newhostkey
+  shell: ipsec newhostkey --nssdir /var/lib/ipsec/nss --output /etc/ipsec.d/hostkey.secrets
+  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and not ipsec_hostkey.stat.exists
+  tags: [ipsec_install]
+
+- name: ipsec left hostkey
+  shell: ipsec showhostkey --left --ckaid $(ipsec showhostkey --list | grep '< 1>' | awk '{ print $7 }')
+  register: ipsec_left_hostkey
+  tags: [ipsec_install]
+
+- name: ipsec right hostkey
+  shell: ipsec showhostkey --right --ckaid $(ipsec showhostkey --list | grep '< 1>' | awk '{ print $7 }')
+  register: ipsec_right_hostkey
+  tags: [ipsec_install]
+
+- name: template config
+  vars:
+    - conname: "conn_{{ hostvars[inventory_hostname].ansible_set_ip }}_{{ hostvars[item].ansible_set_ip }}"
+    - ipsname_item: "{{ hostvars[item].ansible_set_fqdn }}"
+    - ipsip_item: "{{ hostvars[item].ansible_set_ip }}"
+    - ipsleftid_item: "{{ hostvars[item].ipsec_left_hostkey.stdout }}"
+    - ipsrightid_item: "{{ hostvars[item].ipsec_right_hostkey.stdout }}"
+    - ipsname_inv: "{{ hostvars[inventory_hostname].ansible_set_fqdn }}"
+    - ipsip_inv: "{{ hostvars[inventory_hostname].ansible_set_ip }}"
+    - ipsleftid_inv: "{{ hostvars[inventory_hostname].ipsec_left_hostkey.stdout }}"
+    - ipsrightid_inv: "{{ hostvars[inventory_hostname].ipsec_right_hostkey.stdout }}"
+  template:
+    src: connect.j2
+    dest: /etc/ipsec.d/{{ conname }}.conf
+    owner: root
+    group: root
+    mode: 0600
+  when: item != inventory_hostname
+  with_items: "{{ groups['ipsec_enable'] }}"
+  tags: [ipsec_install]
+
+- name: daemon reload
+  command: /usr/bin/systemctl daemon-reload
+  tags: [ipsec_install]
+
+- name: ipsec service restarted
+  service: name=ipsec state=restarted enabled=yes
+  tags: [ipsec_install]
+
+- name: list hostkeys
+  debug: msg="ipsec showhostkey --list"
+  tags: [ipsec_install]
+
+- name: check status ipsec
+  debug: msg="ipsec whack --trafficstatus"
+  tags: [ipsec_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [ipsec_install]

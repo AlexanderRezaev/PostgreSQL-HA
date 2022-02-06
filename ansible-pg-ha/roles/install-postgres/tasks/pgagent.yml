@@ -1,0 +1,185 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [pgagent_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [pgagent_install]
+
+- name: Check all servers DCS & PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ ansible_play_hosts | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - configuring must be performed on ALL machines only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+  tags: [pgagent_install]
+
+
+- name: check pgagent in pg_hba
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_hba_file_rules WHERE user_name::text = '{pgagent}'::text;"
+  register: pgagent_hba_rc
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: add pgagent to pg_hba.conf
+  shell: sed -i '/# TYPE.*DATABASE.*USER.*ADDRESS.*METHOD/a host	all		pgagent		127.0.0.1/32		md5' {{ postgresql_data_dir }}/pg_hba.conf
+  when: pgagent_hba_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: postgresql service reload
+  service: name=postgresql-{{ postgresql_version }} state=reloaded
+  tags: [pgagent_install]
+
+- name: create pgagent home dir
+  file:
+    path: "/home/pgagent"
+    state: directory
+    owner: pgagent
+    group: pgagent
+  tags: [pgagent_install]
+
+- name: create pgagent log dir
+  file:
+    path: "/var/log/pgagent_{{ postgresql_version }}"
+    state: directory
+    owner: pgagent
+    group: pgagent
+  tags: [pgagent_install]
+
+- name: remove file .pgpass
+  ansible.builtin.file:
+    path: "/var/log/pgagent_{{ postgresql_version }}.log"
+    state: absent
+  tags: [pgagent_install]
+
+- name: Generate password
+  shell: base64 < /dev/urandom | head -c24
+  register: pgagent_password
+  run_once: true
+  tags: [pgagent_install]
+
+- debug: var=pgagent_password.stdout
+  tags: [pgagent_install]
+
+- name: remove file .pgpass
+  ansible.builtin.file:
+    path: /home/pgagent/.pgpass
+    state: absent
+  tags: [pgagent_install]
+
+- name: add connection vars to .pgpass
+  lineinfile:
+    path: /home/pgagent/.pgpass
+    line: 127.0.0.1:{{ postgresql_port }}:pgedb:pgagent:{{ pgagent_password.stdout }}
+    state: present
+    owner: pgagent
+    group: pgagent
+    mode: 0600
+    create: yes
+  tags: [pgagent_install]
+
+- name: Generate pgagent config
+  template:
+    src: pgagent.conf
+    dest: "/etc/pgagent/pgagent_{{ postgresql_version }}.conf"
+    owner: pgagent
+    group: pgagent
+    mode: 0644
+  tags: [pgagent_install]
+
+- name: edit logrotate
+  shell: sed -i 's/\/var\/log\/pgagent_{{ postgresql_version }}.log/\/var\/log\/pgagent_{{ postgresql_version }}\/pgagent_{{ postgresql_version }}.log/' /etc/logrotate.d/pgagent_{{ postgresql_version }}
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: check database pgedb exists
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_database WHERE datname = 'pgedb'"
+  register: pgedb_rc
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: create database pgedb
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "CREATE DATABASE pgedb WITH OWNER = postgres ENCODING = 'UTF8' CONNECTION LIMIT = -1;"
+  when: pgedb_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: create comment on database pgedb
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "COMMENT ON DATABASE pgedb IS 'Owner = DBA';"
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: check user pgagent exists
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_roles WHERE rolname='pgagent'"
+  register: pgagent_rc
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: alter pgagent user
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "ALTER USER pgagent WITH LOGIN SUPERUSER INHERIT PASSWORD '{{ pgagent_password.stdout }}';"
+  when: pgagent_rc.stdout == "1"
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name:	create pgagent user
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "CREATE USER pgagent WITH LOGIN SUPERUSER INHERIT PASSWORD '{{ pgagent_password.stdout }}';"
+  when: pgagent_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: create pgagent extension
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -d pgedb -c 'set role pgagent; CREATE EXTENSION IF NOT EXISTS pgagent;'
+  args:
+    warn: no
+  tags: [pgagent_install]
+
+- name: adding existing user pgagent to group postgres
+  user:
+    name: pgagent
+    groups: postgres
+    append: yes
+  tags: [pgagent_install]
+
+- name: set permissions on /var/lib/pgsql
+  ansible.builtin.file:
+    path: /var/lib/pgsql
+    state: directory
+    mode: '0750'
+    recurse: no
+
+- name: Generate pgagent.sql
+  template:
+    src: pgagent.sql
+    dest: "{{ postgresql_root_dir }}/backups/pgagent.sql"
+    owner: postgres
+    group: postgres
+  tags: [pgagent_install]
+
+- name: Execute pgagent.sql
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -d pgedb -f "{{ postgresql_root_dir }}/backups/pgagent.sql"
+  args:
+      warn: no
+  tags: [pgagent_install]
+
+- name: pgagent service
+  service: name=pgagent_{{ postgresql_version }} state=restarted enabled=yes
+  tags: [pgagent_install]
+
+  when: install_pgagent == true
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [pgagent_install]

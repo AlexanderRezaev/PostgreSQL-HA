@@ -1,0 +1,16 @@
+---
+# имя любого tags не должно входить в имя любого tags, кроме себя самого
+
+- debug: msg="Please, specify the --tags"
+  when: "'all' in ansible_run_tags"
+  tags: [pg_profile_install,pg_profile_remove]
+
+- meta: end_play
+  when: "'all' in ansible_run_tags"
+  tags: [pg_profile_install,pg_profile_remove]
+
+- include: install.yml
+  tags: [pg_profile_install]
+
+- include: remove.yml
+  tags: [pg_profile_remove]

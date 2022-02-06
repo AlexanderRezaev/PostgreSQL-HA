@@ -1,0 +1,24 @@
+conn {{ conname }}
+{% if (ipsip_inv | ipaddr('int')) < (ipsip_item | ipaddr('int')) %}
+        leftid=@{{ ipsname_inv }}
+        left={{ ipsip_inv }}
+{{ ipsleftid_inv }}
+{% endif %}
+{% if (ipsip_inv | ipaddr('int')) > (ipsip_item | ipaddr('int')) %}
+        leftid=@{{ ipsname_item }}
+        left={{ ipsip_item }}
+{{ ipsleftid_item }}
+{% endif %}
+{% if (ipsip_inv | ipaddr('int')) > (ipsip_item | ipaddr('int')) %}
+        rightid=@{{ ipsname_inv }}
+        right={{ ipsip_inv }}
+{{ ipsrightid_inv }}
+{% endif %}
+{% if (ipsip_inv | ipaddr('int')) < (ipsip_item | ipaddr('int')) %}
+        rightid=@{{ ipsname_item }}
+        right={{ ipsip_item }}
+{{ ipsrightid_item }}
+{% endif %}
+	authby=rsasig
+	# load and initiate automatically
+	auto=start

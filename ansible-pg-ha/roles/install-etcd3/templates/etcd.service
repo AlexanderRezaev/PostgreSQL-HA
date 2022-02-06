@@ -1,0 +1,26 @@
+[Unit]
+Description=Etcd Service
+Documentation=https://github.com/etcd-io/etcd
+Requires=network.target
+After=network.target time-sync.target
+
+[Service]
+Slice=etcd.slice
+
+Type=notify
+SyslogIdentifier='etcd'
+
+User=etcd
+Group=etcd
+
+Environment=ETCD_DATA_DIR=/var/lib/etcd
+
+ExecStart=/usr/local/bin/etcd --config-file=/etc/etcd/etcd.cfg
+
+LimitNOFILE=65536
+Restart=always
+TimeoutSec=60
+TimeoutStartSec=2min
+
+[Install]
+WantedBy=default.target

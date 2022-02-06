@@ -1,0 +1,15 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false
+  vars_prompt:
+    - name: password
+      prompt: What is Your Password?
+
+  tasks:
+#    - name: Print a message
+#      ansible.builtin.debug:
+#        msg: '{{ password }}'
+    - name: ssh-copy-id
+#      local_action: shell SSHPASS={{ password }} sshpass -e ssh-copy-id -i /root/.ssh/id_rsa.pub root@{{ inventory_hostname }}
+      local_action: shell SSHPASS={{ password }} sshpass -e ssh-copy-id {{ inventory_hostname }}

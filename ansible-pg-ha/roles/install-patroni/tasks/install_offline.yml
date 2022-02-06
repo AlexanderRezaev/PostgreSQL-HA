@@ -1,0 +1,359 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [patroni_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [patroni_install]
+
+- name: install python3
+  package: name=python3 state=present
+  tags: [patroni_install]
+
+- name: install python3-netaddr
+  package: name=python3-netaddr state=present
+  tags: [patroni_install]
+
+- name: install jq
+  package: name=jq state=present
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/sbin/ip address add*'
+    line: "postgres ALL=(root) NOPASSWD: /usr/sbin/ip address add {{ patroni_cluster_ip }}/{{ (hostvars[inventory_hostname].ansible_set_ip+'/'+ansible_default_ipv4.netmask) | ipaddr('prefix') }} dev {{ ansible_default_ipv4.interface }}"
+    validate: 'visudo -cf %s'
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/sbin/ip address delete*'
+    line: "postgres ALL=(root) NOPASSWD: /usr/sbin/ip address delete {{ patroni_cluster_ip }}/{{ (hostvars[inventory_hostname].ansible_set_ip+'/'+ansible_default_ipv4.netmask) | ipaddr('prefix') }} dev {{ ansible_default_ipv4.interface }}"
+    validate: 'visudo -cf %s'
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/sbin/ip -s neigh flush all'
+    line: "postgres ALL=(root) NOPASSWD: /usr/sbin/ip -s neigh flush all"
+    validate: 'visudo -cf %s'
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/sbin/arping -A -c 5 -I*'
+    line: "postgres ALL=(root) NOPASSWD: /usr/sbin/arping -A -c 5 -I {{ ansible_default_ipv4.interface }} {{ patroni_cluster_ip }}"
+    validate: 'visudo -cf %s'
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart pgagent_{{ postgresql_version }}'
+    line: "postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart pgagent_{{ postgresql_version }}"
+    validate: 'visudo -cf %s'
+  when: install_pgagent == true
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/bin/systemctl stop pgagent_{{ postgresql_version }}'
+    line: "postgres ALL=(root) NOPASSWD: /usr/bin/systemctl stop pgagent_{{ postgresql_version }}"
+    validate: 'visudo -cf %s'
+  when: install_pgagent == true
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart pgpool-II-{{ postgresql_version }}'
+    line: "postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart pgpool-II-{{ postgresql_version }}"
+    validate: 'visudo -cf %s'
+  when: install_pgpool == true and postgresql_version|int < 14
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart pgpool-II'
+    line: "postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart pgpool-II"
+    validate: 'visudo -cf %s'
+  when: install_pgpool == true and postgresql_version|int >= 14
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/bin/systemctl stop pgpool-II-{{ postgresql_version }}'
+    line: "postgres ALL=(root) NOPASSWD: /usr/bin/systemctl stop pgpool-II-{{ postgresql_version }}"
+    validate: 'visudo -cf %s'
+  when: install_pgpool == true and postgresql_version|int < 14
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/bin/systemctl stop pgpool-II'
+    line: "postgres ALL=(root) NOPASSWD: /usr/bin/systemctl stop pgpool-II"
+    validate: 'visudo -cf %s'
+  when: install_pgpool == true and postgresql_version|int >= 14
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart pgbouncer'
+    line: "postgres ALL=(root) NOPASSWD: /usr/bin/systemctl restart pgbouncer"
+    validate: 'visudo -cf %s'
+  when: install_pgbouncer == true
+  tags: [patroni_install]
+
+- name: add rule to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^postgres ALL=(root) NOPASSWD: /usr/bin/systemctl kill pgbouncer'
+    line: "postgres ALL=(root) NOPASSWD: /usr/bin/systemctl kill pgbouncer"
+    validate: 'visudo -cf %s'
+  when: install_pgbouncer == true
+  tags: [patroni_install]
+
+
+- name: add comment to sudoers
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^# how testing: sudo -iu postgres sudo /usr/sbin/ip -s neigh flush all'
+    line: '# how testing: sudo -iu postgres sudo /usr/sbin/ip -s neigh flush all'
+    validate: 'visudo -cf %s'
+  tags: [patroni_install]
+
+- name: add alias pip3 to .bashrc
+  lineinfile:
+    path: ~/.bashrc
+    line: alias pip3='python3 -m pip "$@"'
+    state: present
+    create: yes
+  tags: [patroni_install]
+
+####################################################################################
+
+# нет в списке пакетов на https://download.postgresql.org/pub/repos/yum/common/redhat/rhel-8-x86_64/
+- name: install python3-urllib3
+  package: name=python3-urllib3 state=present
+  tags: [patroni_install]
+
+# нет в списке пакетов на https://download.postgresql.org/pub/repos/yum/common/redhat/rhel-8-x86_64/
+# python3-certifi отсутствует в OracleLinux
+- name: EPEL Repo
+  yum:
+    name: epel-release
+    state: latest
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Rocky'
+  tags: [patroni_install]
+
+- name: install python3-certifi
+  package: name=python3-certifi state=present
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'Rocky'
+  tags: [patroni_install]
+
+- name: Create dir /tmp/pa
+  file:
+    path: "/tmp/pa"
+    state: directory
+  tags: [patroni_install]
+
+- name: Copy patroni packages
+  copy:
+    src: "{{ patroni_src }}/{{ item }}"
+    dest: "/tmp/pa"
+  loop: "{{ patroni_packages }}"
+  tags: [patroni_install]
+
+- name: patroni installation (psycopg2)
+  block:
+
+  - name: Install Patroni packages from a local rpm files on CentOS
+    dnf:
+      name: "/tmp/pa/{{ item }}"
+      state: present
+      exclude: python3-certifi*, python3-psycopg3*
+      disable_gpg_check: yes
+    loop: "{{ patroni_packages }}"
+    when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'Rocky'
+    tags: [patroni_install]
+
+  - name: Install Patroni packages from a local rpm files on OracleLinux
+    dnf:
+      name: "/tmp/pa/{{ item }}"
+      state: present
+      exclude: python3-psycopg3*
+      disable_gpg_check: yes
+    loop: "{{ patroni_packages }}"
+    when: ansible_distribution == 'OracleLinux'
+    tags: [patroni_install]
+
+  when: psycopg_version == 2
+
+- name: patroni installation (psycopg3)
+  block:
+
+  - name: Install Patroni packages from a local rpm files on CentOS
+    dnf:
+      name: "/tmp/pa/{{ item }}"
+      state: present
+      exclude: python3-certifi*, python3-psycopg2*
+      disable_gpg_check: yes
+    loop: "{{ patroni_packages }}"
+    when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'Rocky'
+    tags: [patroni_install]
+
+  - name: Install Patroni packages from a local rpm files on OracleLinux
+    dnf:
+      name: "/tmp/pa/{{ item }}"
+      state: present
+      exclude: python3-psycopg2*
+      disable_gpg_check: yes
+    loop: "{{ patroni_packages }}"
+    when: ansible_distribution == 'OracleLinux'
+    tags: [patroni_install]
+
+  when: psycopg_version == 2
+
+####################################################################################
+
+- name: create dir /etc/patroni
+  file:
+    path: "/etc/patroni"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: 0700
+  tags: [patroni_install]
+
+# patroni.service создаётся пакетом. нужно только подкорректировать
+- name: Configure patroni.service
+  lineinfile:
+    dest: "/usr/lib/systemd/system/patroni.service"
+    regexp: '(?i)^(EnvironmentFile.*)'
+    line: '# \1'
+    backrefs: yes
+    state: present
+  tags: [patroni_install]
+
+- name: Configure patroni.service
+  lineinfile:
+    dest: "/usr/lib/systemd/system/patroni.service"
+    regexp: '(?i)^(WorkingDirectory.*)'
+    line: '# \1'
+    backrefs: yes
+    state: present
+  tags: [patroni_install]
+
+- name: cgroups config /usr/lib/systemd/system/patroni.service
+  command: sed -i '/\[Service\]/a Delegate=cpu io' /usr/lib/systemd/system/patroni.service
+  when: postgresql_cgroups == true
+  args:
+    warn: no
+  tags: [patroni_install]
+
+- name: cgroups config /usr/lib/systemd/system/patroni.service
+  command: sed -i '/\[Service\]/a Slice=postgresql.slice' /usr/lib/systemd/system/patroni.service
+  when: postgresql_cgroups == true
+  args:
+    warn: no
+  tags: [patroni_install]
+
+####################################################################################
+
+- name: Create a symbolic link /usr/bin/patroni   
+  file:
+    src: '/usr/bin/patroni'
+    dest: "/usr/local/bin/patroni"
+    owner: root
+    group: root
+    mode: 0755
+    state: link
+  ignore_errors: true
+  tags: [patroni_install]
+
+# OracleLinux online
+- name: Create a symbolic link /usr/bin/patroni   
+  file:
+    src: "/usr/local/bin/patroni"
+    dest: '/usr/bin/patroni'
+    owner: root
+    group: root
+    mode: 0755
+    state: link
+  ignore_errors: true
+  tags: [patroni_install]
+
+####################################################################################
+
+- name: Create a symbolic link /usr/bin/patronictl
+  file:
+    src: '/usr/bin/patronictl'
+    dest: "/usr/local/bin/patronictl"
+    owner: root
+    group: root
+    mode: 0755
+    state: link
+  ignore_errors: true
+  tags: [patroni_install]
+
+# OracleLinux online
+- name: Create a symbolic link /usr/bin/patronictl
+  file:
+    src: "/usr/local/bin/patronictl"
+    dest: '/usr/bin/patronictl'
+    owner: root
+    group: root
+    mode: 0755
+    state: link
+  ignore_errors: true
+  tags: [patroni_install]
+
+- name: patronictl configure with zookeeper
+  shell: /usr/bin/patronictl configure --config-file "${HOME:?}/.config/patroni/patronictl.yaml" --dcs "zookeeper://127.0.0.1:{{ zookeeper_clientPort }}" --namespace "/patroni"
+  when: DCS == 'zookeeper'
+  tags: [patroni_install]
+
+- name: patronictl configure with etcd3
+  shell: /usr/bin/patronictl configure --config-file "${HOME:?}/.config/patroni/patronictl.yaml" --dcs "etcd3://127.0.0.1:{{ ansible_etcd_client_port }}" --namespace "/patroni"
+  when:	DCS == 'etcd3'
+  tags: [patroni_install]
+
+- name: template config ~/.config/patroni/patronictl.yaml      
+  template:
+    src: patronictl.yaml
+    dest: ~/.config/patroni/patronictl.yaml      
+  tags: [patroni_install]
+
+- name: Recursively remove directory /tmp/pa
+  file:
+    path: /tmp/pa
+    state: absent
+  tags: [patroni_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [patroni_install]

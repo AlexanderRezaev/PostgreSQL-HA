@@ -1,0 +1,279 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+
+- name: Check all servers PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ groups['postgresql_cluster'] | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - ipsec must be performed on ALL machines group=postgresql_cluster only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+
+- name: check pgpool in pg_hba
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_hba_file_rules WHERE user_name::text = '{pgpool}'::text;"
+  register: pgpool_hba_rc
+  args:
+    warn: no
+
+- name: add pgpool to pg_hba.conf
+  shell: sed -i '/# TYPE.*DATABASE.*USER.*ADDRESS.*METHOD/a host	all		pgpool		all			md5' {{ postgresql_data_dir }}/pg_hba.conf
+  when: pgpool_hba_rc.stdout != "1"
+  args:
+    warn: no
+
+- name: postgresql service reload
+  service: name=postgresql-{{ postgresql_version }} state=reloaded
+
+- name: check user pgpool exists
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_roles WHERE rolname='pgpool'"
+  register: pgpool_rc
+  args:
+    warn: no
+
+- name: alter pgpool user
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "ALTER USER pgpool WITH LOGIN SUPERUSER INHERIT PASSWORD '{{ postgresql_pgpool_password }}';"
+  when: pgpool_rc.stdout == "1"
+  args:
+    warn: no
+
+- name:	create pgpool user
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "CREATE USER pgpool WITH LOGIN SUPERUSER INHERIT PASSWORD '{{ postgresql_pgpool_password }}';"
+  when: pgpool_rc.stdout != "1"
+  args:
+    warn: no
+
+- name: Set pgpool config path
+  set_fact:
+    pgpool_config_path: "/etc/pgpool-II-{{ postgresql_version }}"
+    pgpool_service: "/usr/lib/systemd/system/pgpool-II-{{ postgresql_version }}.service"
+  when: postgresql_version|int < 14
+
+- name: Set pgpool config path                    
+  set_fact:
+    pgpool_config_path: "/etc/pgpool-II"
+    pgpool_service: "/usr/lib/systemd/system/pgpool-II.service"
+  when: postgresql_version|int >= 14
+
+- name: copy file pgpool.conf.sample-master-slave to {{ pgpool_config_path }}/pgpool.conf
+  shell: "cp {{ pgpool_config_path }}/pgpool.conf.sample-master-slave {{ pgpool_config_path }}/pgpool.conf"
+  args:
+    warn: no
+  when: postgresql_version|int < 14
+
+- name: copy file pgpool.conf.sample to {{ pgpool_config_path }}/pgpool.conf
+  shell: "cp {{ pgpool_config_path }}/pgpool.conf.sample {{ pgpool_config_path }}/pgpool.conf"
+  args:
+    warn: no
+  when: postgresql_version|int >= 14
+
+- name: copy file pcp.conf.sample to {{ pgpool_config_path }}/pcp.conf
+  shell: "cp {{ pgpool_config_path }}/pcp.conf.sample {{ pgpool_config_path }}/pcp.conf"
+  args:
+    warn: no
+  when: postgresql_version|int >= 14
+
+- name: add login/password to pcp.conf
+  shell: "echo -n pgpool:$(echo -n {{ postgresql_pgpool_password }} | md5sum | tr -d '-' | tr -d '[:blank:]') >> {{ pgpool_config_path }}/pcp.conf"
+  ignore_errors: true
+  args:
+    warn: no
+
+- name: set permission
+  file:
+    path: "{{ pgpool_service }}"
+    state: file
+    mode: 0644
+
+- name: set permission
+  file:
+    path: "{{ pgpool_config_path }}"
+    state: directory
+    recurse: yes
+    owner: postgres
+    group: postgres
+
+- name: mkdir /var/run/pgpool
+  shell: "mkdir /var/run/pgpool"
+  ignore_errors: true
+  args:
+    warn: no
+
+- name: set permission
+  file:
+    path: "/var/run/pgpool"
+    state: directory
+    recurse: yes
+    owner: postgres 
+    group: postgres          
+
+- name: mkdir /var/log/pgpool
+  shell: "mkdir /var/log/pgpool"
+  ignore_errors: true
+  args:
+    warn: no
+
+- name: set permission
+  file:
+    path: "/var/log/pgpool"
+    state: directory
+    recurse: yes
+    owner: postgres
+    group: postgres
+
+- name: set listen_addresses
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: listen_addresses = '0.0.0.0'
+    regexp: '^listen_addresses '
+    insertafter: '^#listen_addresses '
+
+- name: set logdir
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: logdir = '/var/log/pgpool'
+    regexp: '^logdir ' 
+    insertafter: '^#logdir '
+
+- name: set master_slave_sub_mode
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: master_slave_sub_mode = 'stream'
+    regexp: '^master_slave_sub_mode '
+    insertafter: '^#master_slave_sub_mode '
+
+#- name: set pool_passwd
+#  lineinfile:
+#    path: "{{ pgpool_config_path }}/pgpool.conf"
+#    line: pool_passwd = "{{ postgresql_pgpool_password }}"
+#    regexp: '^pool_passwd '
+#    insertafter: '^#pool_passwd '
+
+- name: set sr_check_user
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: sr_check_user = 'pgpool'
+    regexp: '^sr_check_user '
+    insertafter: '^#sr_check_user '
+
+- name: set sr_check_password
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: sr_check_password = '{{ postgresql_pgpool_password }}'
+    regexp: '^sr_check_password '
+    insertafter: '^#sr_check_password '
+
+- name: set health_check_user
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: health_check_user = 'pgpool'
+    regexp: '^health_check_user '
+    insertafter: '^#health_check_user '
+
+- name: set health_check_password
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: health_check_password = '{{ postgresql_pgpool_password }}'
+    regexp: '^health_check_password '
+    insertafter: '^#health_check_password '
+
+- name: set allow_clear_text_frontend_auth
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: allow_clear_text_frontend_auth = on
+    regexp: '^allow_clear_text_frontend_auth '
+    insertafter: '^#allow_clear_text_frontend_auth '
+
+- name: set load_balance_mode
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: load_balance_mode = on
+    regexp: '^load_balance_mode '
+    insertafter: '^#load_balance_mode '
+
+- name: set read_only_function_list
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    line: read_only_function_list = 'hostname'
+    regexp: '^read_only_function_list '
+    insertafter: '^#read_only_function_list '
+
+#sed -i "s/listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/pgpool-II-13/pgpool.conf
+#sed -i "s/logdir = '\/tmp'/logdir = '\/var\/log\/pgpool'/" /etc/pgpool-II-13/pgpool.conf
+#sed -i "s/master_slave_sub_mode = 'slony'/master_slave_sub_mode = 'stream'/" /etc/pgpool-II-13/pgpool.conf
+#sed -i "s/sr_check_user = 'nobody'/sr_check_user = 'pgpool'/" /etc/pgpool-II-13/pgpool.conf
+#sed -i "s/sr_check_password = ''/sr_check_password = 'P@ssw0rd'/" /etc/pgpool-II-13/pgpool.conf
+#sed -i "s/health_check_user = 'nobody'/health_check_user = 'pgpool'/" /etc/pgpool-II-13/pgpool.conf
+#sed -i "s/health_check_password = ''/health_check_password = 'P@ssw0rd'/" /etc/pgpool-II-13/pgpool.conf
+#sed -i "s/allow_clear_text_frontend_auth = off/allow_clear_text_frontend_auth = on/" /etc/pgpool-II-13/pgpool.conf
+
+- name: Remove Backend Connection Settings
+  shell: "sed -i '/# - Backend Connection Settings -/,/# - Authentication -/{//!d}' {{ pgpool_config_path }}/pgpool.conf"
+  args:
+    warn: no
+
+#sed -i '/# - Backend Connection Settings -/,/# - Authentication -/{//!d}' /etc/pgpool-II-13/pgpool.conf
+
+- name: Create backend_connection_settings
+  template:
+    src: "backend_connection_settings"
+    dest: "/tmp/backend_connection_settings"
+    owner: postgres
+    group: postgres
+    mode: 0600
+
+- name: Read backend_connection_settings
+  shell: cat /tmp/backend_connection_settings
+  register: backend_connection_settings
+
+- name: Add Backend Connection Settings
+  lineinfile:
+    path: "{{ pgpool_config_path }}/pgpool.conf"
+    insertafter: '# - Backend Connection Settings -'
+    firstmatch: yes
+    line: "{{ backend_connection_settings.stdout }}"
+
+- name: tmpfiles.d correction
+  shell: sed -i "s/\/run\/pgpool-II-{{ postgresql_version }}/\/var\/run\/pgpool/" /usr/lib/tmpfiles.d/pgpool-II-{{ postgresql_version }}.conf
+  args:
+    warn: no
+  when: postgresql_version|int < 14
+
+- name: tmpfiles.d correction
+  shell: sed -i "s/\/run\/pgpool-II/\/var\/run\/pgpool/" /usr/lib/tmpfiles.d/pgpool-II.conf
+  args:
+    warn: no
+  when: postgresql_version|int >= 14
+
+#- name: Add Backend Connection Settings
+#  lineinfile:
+#    path: "{{ pgpool_config_path }}/pgpool.conf"
+#    insertafter: '# - Backend Connection Settings -'
+#    firstmatch: yes
+#    line: "{{ item }}"
+#  with_items:
+#    - "backend_hostname0 = 'c8-h11'"
+#    - "backend_port0 = {{ postgresql_port }}"
+#    - "backend_weight0 = 1"
+#    - "backend_data_directory0 = '/var/lib/pgsql/{{ postgresql_version }}/data'"
+#    - "backend_flag0 = 'DISALLOW_TO_FAILOVER'"
+#    - "backend_hostname1 = 'c8-h12'"
+#    - "backend_port1 = {{ postgresql_port }}"
+#    - "backend_weight1 = 1"
+#    - "backend_data_directory1 = '/var/lib/pgsql/{{ postgresql_version }}/data'"
+#    - "backend_flag1 = 'DISALLOW_TO_FAILOVER'"
+#    - "backend_hostname2 = 'c8-h13'"
+#    - "backend_port2 = {{ postgresql_port }}"
+#    - "backend_weight2 = 1"
+#    - "backend_data_directory2 = '/var/lib/pgsql/{{ postgresql_version }}/data'"
+#    - "backend_flag2 = 'DISALLOW_TO_FAILOVER'"
+
+#- name: check with
+#  debug: msg="PGPASSWORD={{ postgresql_pgpool_password }} psql -t -h {{ patroni_fqdn }} -p 9999 -U pgpool -d pgedb -c 'select hostname();' | sed -n '1p'"
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"

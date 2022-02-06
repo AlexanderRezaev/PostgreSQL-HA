@@ -1,0 +1,28 @@
+##### MAINTENANCE #####
+#*/15   * * * *   LDAPURI="ldap://lab-dc.lab.local ldap://lab-dc.lab.local" LDAPBINDDN=ad.reader LDAPPASSWORD=P@ssw0rd ldap2pg --config /var/lib/pgsql/12/data/ldap2pg.yml --real 1>/dev/null 2>&1 || true
+0      * * * *   psql -p {{ postgresql_port }} -d pgedb -c "SET client_min_messages TO error; select public.log_switch();" 2>&1 1>/dev/null
+4-59/5 * * * *   psql -p {{ postgresql_port }} -d pgedb -c "SET client_min_messages TO error; select public.log_switch();" 2>&1 1>/dev/null
+00 20  * * *     PORT={{ postgresql_port }} /var/lib/pgsql/analyze.sh 2>&1 1>/dev/null || true
+45 23  * * *     PORT={{ postgresql_port }} /var/lib/pgsql/vacuum.sh 2>&1 1>/dev/null || true
+
+##### ALERTS #####
+#00   8   * * *   export DiskUsageLimit=80 && /var/lib/pgsql/DiskUsage.sh >/dev/null 2>&1
+#30 */1   * * *   export DiskUsageLimit=90 && /var/lib/pgsql/DiskUsage.sh >/dev/null 2>&1
+#00 */1   * * *   /var/lib/pgsql/send_locks.sh
+
+##### AUTO SHUTDOWN #####
+*    * * * *     /var/lib/pgsql/auto_shutdown.sh 1>/dev/null 2>&1 || true
+
+##### STATE LOG #####
+*    * * * *     psql -p {{ postgresql_port }} -d pgedb -c "INSERT INTO public.log_connections( dt, connection_count ) SELECT clock_timestamp(), (SELECT count(*) FROM pg_stat_activity);" 1>/dev/null 2>&1 || true
+*    * * * *     psql -p {{ postgresql_port }} -d pgedb -c "INSERT INTO public.log_user_connections( dt, usename, connection_count ) SELECT now(), usename, count(*) as cnt FROM pg_stat_activity WHERE usename is not null GROUP BY usename ORDER BY cnt desc LIMIT 5;" 1>/dev/null 2>&1 || true
+*    * * * *     psql -p {{ postgresql_port }} -d pgedb -c "INSERT INTO public.log_active_connections( dt, usename, connection_count ) SELECT now(), usename, count(*) as cnt FROM pg_stat_activity WHERE state<>'idle' GROUP BY usename ORDER BY cnt desc;" 1>/dev/null 2>&1 || true
+#*/10 * * * *     /var/lib/pgsql/pgRAM.sh 2>&1 1>/dev/null || true
+*/15 * * * *     psql -p {{ postgresql_port }} -d pgedb -c "INSERT INTO public.log_user_ram(dt, usename, conn, ram_kb) SELECT now() as dt, usename, count(pid) as conn, sum(mem_kb) as ram_kb FROM ( select pid,usename,((get_pid_cpu_mem(pid)).mem_kb) as mem_kb from pg_stat_activity) a GROUP BY usename ORDER BY sum(mem_kb) DESC LIMIT 3;" 1>/dev/null 2>&1 || true
+
+##### PROACTIVE MONITORING #####
+*/15 * * * *     psql -p {{ postgresql_port }} -d pgedb -c "INSERT INTO public.log_kills (datname, pid, usename, application_name, client_addr, backend_start, xact_start, query_start, state_change, wait_event_type, wait_event, state, query, ok, typekill, kill, killer) SELECT datname, pid, usename, application_name, client_addr, backend_start, xact_start, query_start, state_change, wait_event_type, wait_event, state, query ,pg_terminate_backend(pid) as ok, 'terminate' as typekill, clock_timestamp() as kill, session_user as killer FROM pg_catalog.pg_stat_activity WHERE state in ('idle in transaction', 'idle in transaction (aborted)') AND current_timestamp - state_change > interval '30 minutes' AND usename <> 'postgres' AND usename <> 'barman' AND usename <> 'streaming_barman' AND pid <> pg_backend_pid();" 1>/dev/null 2>&1 || true
+
+##### DEVELOPMENT #####
+#01  00 * * 1-5   /var/lib/pgsql/protect_dbname.sh START &>/var/lib/pgsql/logs/protect_dbname_START.log
+#00  09 * * 1-5   /var/lib/pgsql/protect_dbname.sh STOP  &>/var/lib/pgsql/logs/protect_dbname_STOP.log

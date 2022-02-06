@@ -1,0 +1,30 @@
+---
+# имя любого tags не должно входить в имя любого tags, кроме себя самого
+
+- debug: msg="Please, specify the --tags"
+  when: "'all' in ansible_run_tags"
+  tags: [patroni_install,patroni_config,patroni_remove]
+
+- meta: end_play
+  when: "'all' in ansible_run_tags"
+  tags: [patroni_install,patroni_config,patroni_remove]
+
+- include: install_{{ installation }}.yml
+  when: installation == 'online'
+  tags: [patroni_install]
+
+- include: install_{{ installation }}.yml
+  when:	installation ==	'offline'
+  tags: [patroni_install]
+
+- include: config_sync.yml
+  tags: [patroni_config_sync]
+
+- include: config_async.yml
+  tags: [patroni_config_async]
+
+- include: init.yml
+  tags: [patroni_init]
+
+- include: remove.yml
+  tags: [patroni_remove]

@@ -1,0 +1,371 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [postgres_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [postgres_install]
+
+- name: Check all servers PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ ansible_play_hosts | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - configuring must be performed on ALL machines only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+  tags: [postgres_install]
+
+- name: install chrony
+  package: name=chrony state=present
+  tags: [postgres_install]
+
+- name: chronyd service start
+  service: name=chronyd state=started enabled=yes
+  tags: [postgres_install]
+
+- name: install perl package in linux
+  package: name=perl state=present
+  tags: [postgres_install]
+
+- name: install mutt package in linux
+  package: name=mutt state=present
+  tags: [postgres_install]
+
+#- name: install epel-release Repo in RedHat
+#  shell: dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+#  when: ansible_distribution == 'RedHat'
+#  args:
+#    warn: no
+#  tags: [postgres_install]
+
+#- name: install epel-release Repo in CentOS
+#  package: name=epel-release state=present
+#  when: ansible_distribution == 'CentOS'
+#  tags: [postgres_install]
+
+#- name: install epel-release Repo in OraLinux
+#  package: name=oracle-epel-release-el8 state=present
+#  when: ansible_distribution == 'OracleLinux'
+#  tags: [postgres_install]
+
+#- name: install moreutils package in CentOS
+#  shell: dnf --enablerepo=powertools install moreutils -y
+#  when: ansible_distribution == 'CentOS'
+#  args:
+#    warn: no
+#  tags: [postgres_install]
+
+#- name: install moreutils package in RedHat
+#  shell: dnf --enablerepo=powertools install moreutils -y
+#  when: ansible_distribution == 'RedHat'
+#  args:
+#    warn: no
+#  tags: [postgres_install]
+
+#- name: install moreutils package in OraLinux
+#  shell: dnf -y --enablerepo=ol8_codeready_builder install moreutils
+#  when: ansible_distribution == 'OracleLinux'
+#  args:
+#    warn: no
+#  tags: [postgres_install]
+
+- name: Disable PostgreSQL in Repo
+  shell: dnf -qy module disable postgresql
+  args:
+    warn: no
+  tags: [postgres_install]
+
+# можно проверить здесь : установлен ли postgres. но как тогда быть с update version ?
+
+#- name: get the rpm package facts
+#  package_facts:
+#    manager: rpm
+#  tags: [postgres_install]
+#- name: show them
+#  debug: var=ansible_facts.packages
+#  tags: [postgres_install]
+
+#- name: "Get installed packages"
+#  dnf:
+#    list: "installed"
+#  register: installed_packages
+#  tags: [postgres_install]
+#- name: show them
+#  debug: var=installed_packages
+#  tags: [postgres_install]
+
+- name: Create dir /tmp/pg
+  file:
+    path: "/tmp/pg"
+    state: directory
+  tags: [postgres_install]
+
+- name: offline installation
+  block:
+
+  - name: Copy postgres packages
+    copy:
+      src: "{{ postgresql_src }}/{{ item }}"
+      dest: "/tmp/pg"
+    loop: "{{ postgresql_packages }}"
+    tags: [postgres_install]
+
+  - name: Copy addendum version packages
+    copy:
+      src: "{{ postgresql_src }}/{{ item }}"
+      dest: "/tmp/pg"
+    loop: "{{ postgresql_addendum_version }}"
+    ignore_errors: yes
+    tags: [postgres_install]
+
+  - name: Copy addendum common packages
+    copy:
+      src: "{{ postgresql_src }}/{{ item }}"
+      dest: "/tmp/pg"
+    loop: "{{ postgresql_addendum_common }}"
+    ignore_errors: yes
+    tags: [postgres_install]
+
+  when: installation == 'offline'
+
+- name: online installation
+  block:
+
+  - name: postgresql download
+    shell: curl -L "{{ PG_VERSION_DOWNLOAD_URL }}/{{ item }}" -o "/tmp/pg/{{ item }}"
+    with_items: "{{ postgresql_packages }}"
+    args:
+      warn: no
+    tags: [postgres_install]
+
+  - name: addendum version download
+    shell: curl -L "{{ PG_VERSION_DOWNLOAD_URL }}/{{ item }}" -o "/tmp/pg/{{ item }}"
+    with_items: "{{ postgresql_addendum_version }}"
+    args:
+      warn: no
+    when: install_pgagent == true or install_pgbouncer == true or install_pgpool == true
+    ignore_errors: yes
+    tags: [postgres_install]
+
+  - name: addendum common download
+    shell: curl -L "{{ PG_COMMON_DOWNLOAD_URL }}/{{ item }}" -o "/tmp/pg/{{ item }}"
+    with_items: "{{ postgresql_addendum_common }}"
+    args:
+      warn: no
+    when: install_pgagent == true or install_pgbouncer == true or install_pgpool == true
+    ignore_errors: yes
+    tags: [postgres_install]
+
+  when: installation == 'online'
+
+
+- name: Install PostgreSQL packages from a local rpm files
+  dnf:
+    name: "/tmp/pg/{{ item }}"
+    state: present
+    disable_gpg_check: yes
+  loop: "{{ postgresql_packages }}"
+  tags: [postgres_install]
+
+- name: Install Addendum common packages from a local rpm files
+  dnf:
+    name: "/tmp/pg/{{ item }}"
+    state: present
+    disable_gpg_check: yes
+  loop: "{{ postgresql_addendum_common }}"
+  when: install_pgagent == true or install_pgbouncer == true or install_pgpool == true
+  ignore_errors: yes
+  tags: [postgres_install]
+
+- name: Install Addendum version packages from a local rpm files
+  dnf:
+    name: "/tmp/pg/{{ item }}"
+    state: present
+    disable_gpg_check: yes
+  loop: "{{ postgresql_addendum_version }}"
+  when: install_pgagent == true or install_pgbouncer == true or install_pgpool == true
+  ignore_errors: yes
+  tags: [postgres_install]
+
+
+- name: Check if PostgreSQL database is initialized.
+  stat:
+    path: "{{ postgresql_data_dir }}/PG_VERSION"
+  register: pgdata_dir_version
+  tags: [postgres_install]
+
+
+- name: environment configuring /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+  command: sed -i 's/Environment=PGDATA=\/var\/lib\/pgsql\/10\/data/Environment=PGDATA=\/var\/lib\/pgsql\/data/' /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+  when: not pgdata_dir_version.stat.exists and postgresql_on_mounted_disk == true
+  args:
+    warn: no
+  tags: [postgres_install]
+
+- name: cgroups configuring /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+  command: sed -i '/\[Service\]/a Delegate=cpu io' /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+  when: not pgdata_dir_version.stat.exists and postgresql_cgroups == true
+  args:
+    warn: no
+  tags: [postgres_install]
+
+- name: cgroups configuring /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+  command: sed -i '/\[Service\]/a Slice=postgresql.slice' /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+  when: not pgdata_dir_version.stat.exists and postgresql_cgroups == true
+  args:
+    warn: no
+  tags: [postgres_install]
+
+
+- name: PostgreSQL database initializing..
+  shell: "sudo -iu postgres /usr/pgsql-{{ postgresql_version }}/bin/initdb --data-checksums --encoding=UTF8 --pgdata={{ postgresql_data_dir }} --waldir={{ postgresql_wal_dir }}"
+#  command: "/usr/pgsql-{{ postgresql_version }}/bin/postgresql-{{ postgresql_version }}-setup initdb"
+  when: not pgdata_dir_version.stat.exists and postgresql_on_mounted_disk == true
+  args:
+    warn: no
+  tags: [postgres_install]
+
+- name: PostgreSQL database initializing..
+  shell: "sudo -iu postgres /usr/pgsql-{{ postgresql_version }}/bin/initdb --data-checksums --encoding=UTF8"
+#  command: "/usr/pgsql-{{ postgresql_version }}/bin/postgresql-{{ postgresql_version }}-setup initdb"
+  when: not pgdata_dir_version.stat.exists and postgresql_on_mounted_disk == false
+  args:
+    warn: no
+  tags: [postgres_install]
+
+# нужно смонтировать postgresql_root_dir=/var/lib/pgsql на диск /dev/postgresql_data_vg/pg_data
+# тогда можно будет rm -rf /var/lib/pgsql/data
+
+- block:
+
+  - name: check disk data mounted {{ postgresql_data_dir }}
+    shell: mountpoint {{ postgresql_data_dir }}
+    register: check_mount
+    vars:
+      mntp: "{{ postgresql_data_dir }} is a mountpoint"
+    failed_when: check_mount.stdout == mntp
+
+  - name: Create dir /pg_data
+    file:
+      path: "/pg_data"
+      state: directory
+      owner: postgres
+      group: postgres
+      mode: 0700
+
+  - name: mount disk data {{ postgresql_data_dev }} to /pg_data
+    mount:
+      src: "{{ postgresql_data_dev }}"
+      path: "/pg_data"
+      fstype: xfs
+      state: mounted
+#      opts: rw,noatime,async,barrier=0,data=writeback,commit=60
+
+  - name: set permission
+    file:
+      path: "/pg_data"
+      state: directory
+      owner: postgres
+      group: postgres
+      mode: 0700
+
+# ???
+  - name: move data from {{ postgresql_data_dir }} to /pg_data/data
+    shell: "mv {{ postgresql_data_dir }} /pg_data/"
+    args:
+      warn: no
+
+# ln -s /pg_data/data/ /var/lib/pgsql/13/data
+#       postgresql_data_dir: "/var/lib/pgsql/{{ postgresql_version }}/data"
+
+  - name: create link
+    file:
+      src: "/pg_data/data"
+      dest: "{{ postgresql_data_dir }}"
+      state: link
+      owner: postgres
+      group: postgres
+
+
+  - name: check disk wal mounted {{ postgresql_wal_dir }}
+    shell: mountpoint {{ postgresql_wal_dir }}
+    register: check_mount
+    vars:
+      mntp: "{{ postgresql_wal_dir }} is a mountpoint"
+    failed_when: check_mount.stdout == mntp
+
+  - name: Create dir /pg_wal
+    file:
+      path: "/pg_wal"
+      state: directory
+      owner: postgres
+      group: postgres
+      mode: 0700
+
+  - name: mount disk wal {{ postgresql_wal_dev }} to /pg_wal
+    mount:
+      src: "{{ postgresql_wal_dev }}"
+      path: "/pg_wal"
+      fstype: xfs
+      state: mounted
+#      opts: rw,noatime,async,barrier=0,data=writeback,commit=60
+
+  - name: set permission
+    file:
+      path: "/pg_wal"
+      state: directory
+      owner: postgres
+      group: postgres
+      mode: 0700
+
+  - name: move data from {{ postgresql_wal_dir }} to /pg_wal/wal
+    shell: "mv {{ postgresql_wal_dir }} /pg_wal/wal"
+    args:
+      warn: no
+
+  - name: create link
+    file:
+      src: "/pg_wal/wal"
+      dest: "{{ postgresql_wal_dir }}"
+      state: link
+      owner: postgres
+      group: postgres
+
+#  - name: move directory /var/lib/pgsql/{{ postgresql_version }}/backups
+#    shell: "mv /var/lib/pgsql/{{ postgresql_version }}/backups /var/lib/pgsql/"
+#    args:
+#      warn: no
+
+#  - name: remove directory /var/lib/pgsql/{{ postgresql_version }}/data
+#    file:
+#      path: "/var/lib/pgsql/{{ postgresql_version }}/data"
+#      state: absent
+
+  - name: escaped
+    set_fact: pgdatdir_escaped="{{ postgresql_data_dir | regex_replace ('/','\/') }}"
+
+  - name: change /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+    shell: sed -i 's/\/var\/lib\/pgsql\/{{ postgresql_version }}\/data/{{ pgdatdir_escaped }}/' /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+    args:
+      warn: no
+
+  when: not pgdata_dir_version.stat.exists and postgresql_on_mounted_disk is defined and postgresql_on_mounted_disk == true
+  tags: [postgres_install]
+
+
+#- name: postgresql cgroups config
+#  template: src=postgresql.cgroup.j2 dest=/etc/cgconfig.d/postgresql.conf
+#  tags: [postgres_install]
+
+
+- name: Recursively remove directory /tmp/pg
+  file:
+    path: /tmp/pg
+    state: absent
+  tags: [postgres_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [postgres_install]

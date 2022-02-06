@@ -1,0 +1,18 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [etcd3_remove]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [etcd3_remove]
+
+- name: etcd3 service stop
+  service: name={{ etcd3_service }} state=stopped enabled=no
+  tags: [etcd3_remove]
+
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [etcd3_remove]

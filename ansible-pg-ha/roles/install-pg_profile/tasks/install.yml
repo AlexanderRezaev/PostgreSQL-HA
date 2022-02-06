@@ -1,0 +1,84 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+#  tags: [pg_profile_install]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+
+- name: Check all servers PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ groups['postgresql_cluster'] | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - ipsec must be performed on ALL machines group=postgresql_cluster only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+
+- name: Create dir /tmp/pg
+  file:
+    path: "/tmp/pg"
+    state: directory
+
+- name: offline installation
+  block:
+
+  - name: Copy pg_profile package
+    copy:
+      src: "{{ postgresql_src }}/pg_profile--0.3.4.tar.gz"
+      dest: "/tmp/pg"
+
+  when:	installation ==	'offline'
+
+- name: online installation           
+  block:
+
+  - name: download
+    shell: curl -L "{{ PGPROFILE_DOWNLOAD_URL }}/pg_profile--0.3.4.tar.gz" -o "/tmp/pg/pg_profile--0.3.4.tar.gz"
+    args:
+      warn: no
+
+  when: installation == 'online'
+
+- name: Install pg_profile package
+  shell: "tar xzf /tmp/pg/pg_profile--0.3.4.tar.gz --directory $(/usr/pgsql-{{ postgresql_version }}/bin/pg_config --sharedir)/extension"
+  args:
+    warn: no
+
+- name: create extension pg_profile
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -d pgedb -c "CREATE SCHEMA IF NOT EXISTS profile; CREATE EXTENSION IF NOT EXISTS dblink; CREATE EXTENSION IF NOT EXISTS pg_stat_statements; CREATE EXTENSION IF NOT EXISTS pg_profile SCHEMA profile; ALTER EXTENSION pg_profile UPDATE;"
+  args:
+    warn: no
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 1
+
+- name: creates cron task for log_switch
+  ansible.builtin.cron:
+    name: "Cron Task for pg_profile"
+    minute: "*/30"
+    user: postgres
+    state: present
+    job: psql -p {{ postgresql_port }} -d pgedb -c "SELECT profile.take_sample();" 2>&1 1>/dev/null || true
+  when: install_pgagent == false
+
+- name: Generate pg_profile_job.sql
+  template:
+    src: pg_profile_job.sql
+    dest: "{{ postgresql_root_dir }}/backups/pg_profile_job.sql"
+    owner: postgres
+    group: postgres
+  when: install_pgagent == true
+
+- name: Execute pg_profile_job.sql
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -d pgedb -f "{{ postgresql_root_dir }}/backups/pg_profile_job.sql"
+  args:
+      warn: no
+  when: install_pgagent == true
+
+- name: Recursively remove directory /tmp/pg
+  file:
+    path: /tmp/pg
+    state: absent
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+#  tags: [pg_profile_install]

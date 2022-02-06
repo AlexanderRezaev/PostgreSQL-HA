@@ -1,0 +1,87 @@
+namespace: {{ patroni_namespace }}
+scope: {{ patroni_scope }}
+name: {{ inventory_hostname_short }}
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: {{ inventory_hostname_short }}:8008
+
+{% if DCS == 'zookeeper' %}
+zookeeper:
+  hosts: [{% for host in groups['dcs_cluster'] %} '{{ host }}:{{ zookeeper_clientPort }}'{% if not loop.last %},{% endif %}{% endfor %} ]
+{% endif %}
+
+{% if DCS == 'etcd3' %}
+etcd:
+  host: 127.0.0.1:{{ ansible_etcd_client_port }}
+#  hosts: [{% for host in groups['dcs_cluster'] %} '{{ host }}:2389'{% if not loop.last %},{% endif %}{% endfor %} ]
+{% endif %}
+
+bootstrap:
+  dcs:
+    ttl: 40
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    master_start_timeout: 30
+    check_timeline: true
+{% if patroni_replica_synchronous == true %}
+    synchronous_mode: true
+{% endif %}
+{% if patroni_replica_synchronous == false %}
+    synchronous_mode: false
+    synchronous_mode_strict: true
+{% endif %}
+
+    postgresql:
+      use_pg_rewind: true
+      use_slots: false
+#      parameters:
+#        cluster_name: '{{ patroni_scope }}'
+
+#  initdb:
+#  - encoding: UTF8
+#  - data-checksums
+
+#  pg_hba:  # Add following lines to pg_hba.conf after running 'initdb'
+#  - host all {{ patroni_replica_login }} all md5
+#  - host all {{ patroni_admin_login }} all md5
+
+#  users:
+#    {{ patroni_admin_login }}:
+#      password: {{ patroni_admin_password }}
+#      options:
+#        - createrole
+#        - createdb
+#    {{ patroni_replica_login }}:
+#      password: {{ patroni_replica_password }}
+#      options:
+#        - replication
+##        - createrole
+##        - createdb
+
+postgresql:
+  listen: 0.0.0.0:{{ postgresql_port }}
+  connect_address: {{ inventory_hostname_short }}:{{ postgresql_port }}
+  bin_dir: /usr/pgsql-{{ postgresql_version }}/bin
+  data_dir: {{ postgresql_data_dir }}
+  config_dir: {{ postgresql_data_dir }}
+  authentication:
+    replication:
+      username: {{ patroni_replica_login }}
+      password: {{ patroni_replica_password }}
+    superuser:
+      username: {{ patroni_admin_login }}
+      password: {{ patroni_admin_password }}
+  callbacks:
+    on_start: /etc/patroni/on_start.sh
+    on_stop: /etc/patroni/on_stop.sh
+    on_role_change: /etc/patroni/on_role_change.sh
+    on_reload: /etc/patroni/on_reload.sh
+    on_restart: /etc/patroni/on_restart.sh
+  basebackup:
+    - waldir: {{ postgresql_wal_dir }}
+#  parameters:
+#    archive_mode: on
+#    archive_command: '/bin/bash {{ postgresql_data_dir }}/archive_wal.sh %p %f'
+#

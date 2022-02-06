@@ -1,0 +1,19 @@
+---
+  - hosts: [postgresql_cluster]
+    become: yes
+    any_errors_fatal: true
+
+    vars:
+
+      installation: offline
+
+      postgresql_version: "13"
+      postgresql_src: "/root/packages/postgres/PG{{ postgresql_version }}"
+      postgresql_port: 5434
+
+      pg_profile_package:
+        - pg_profile--0.3.4.tar.gz
+
+    roles:
+
+      - install-pg_profile

@@ -1,0 +1,273 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [patroni_init]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [patroni_init]
+
+- name: Check all servers DCS & PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ ansible_play_hosts | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - cluster initialize must be performed on ALL machines only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+  tags: [patroni_init]
+
+- debug: msg="{{ ansible_distribution }}"
+  tags: [patroni_install]
+
+- name: Validate whether Zookeeper service is running or not
+  shell: echo ruok | nc 127.0.0.1 {{ zookeeper_clientPort }}
+  args:
+    executable: /bin/bash
+  register: zookeeper_answer
+  retries: 10
+  delay: 60
+  until: zookeeper_answer.stdout.find('imok') != -1
+  when: inventory_hostname in groups['dcs_cluster'] and DCS == 'zookeeper'
+  tags: [patroni_init]
+
+## нужен Validate для etcd3
+## etcdctl cluster-health | grep 'cluster is'
+- name: Validate whether ETCD service is running or not
+  shell: /usr/local/bin/etcdctl cluster-health | grep 'cluster is'
+  args:
+    executable: /bin/bash
+  register: etcd_answer
+  retries: 10
+  delay: 60
+  until: etcd_answer.stdout.find('healthy') != -1
+  when: inventory_hostname in groups['dcs_cluster'] and DCS == 'etcd3'
+  tags: [patroni_init]
+
+- name: Patroni Cluster Exists
+  shell: /etc/patroni/test_scope.sh
+  register: patroni_cls
+  failed_when: patroni_scope in patroni_cls.stdout
+  when: DCS == 'zookeeper'
+  tags: [patroni_init]
+
+- name: daemon reload
+  command: /usr/bin/systemctl daemon-reload
+  tags: [patroni_init]
+
+- name: postgresql service stop & disable
+  service: name=postgresql-{{ postgresql_version }} state=stopped enabled=no 
+  tags: [patroni_init]
+
+#- name: postgresql.conf | synchronous_commit = 'remote_apply'
+#  lineinfile:
+#    path: "{{ postgresql_data_dir }}/postgresql.conf"
+#    line: synchronous_commit = 'local'
+#    line: synchronous_commit = 'remote_apply'
+#    regexp: '^synchronous_commit '
+#    insertafter: '^#synchronous_commit '
+#  tags: [patroni_init]
+
+- name: leader patroni service start & enable
+  service: name=patroni state=started enabled=yes
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 1
+  tags: [patroni_init]
+
+- command: hostname --short
+  register: cls1
+  run_once: true
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 1
+  tags: [patroni_init]
+
+#- debug: var=cls1.stdout
+
+- name: pause
+  pause:
+    seconds: 10
+  run_once: true
+  tags: [patroni_init]
+
+- name: clear data on slave servers
+  shell: rm -rf {{ postgresql_data_dir }}/*
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- name: clear wal on slave servers
+  shell: rm -rf {{ postgresql_wal_dir }}/*
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 1
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- name: restore postgresql on ansible_set_patroni_id == 2
+# shell: sudo -iu postgres PGPASSWORD={{ patroni_replica_password }} /usr/pgsql-{{ postgresql_version }}/bin/pg_basebackup --progress --verbose --host='{{ cls1.stdout }}' --port={{ postgresql_port }} --username={{ patroni_replica_login }} --pgdata={{ postgresql_data_dir }} --wal-method=stream --write-recovery-conf
+  shell: sudo -iu postgres PGPASSWORD={{ patroni_replica_password }} /usr/pgsql-{{ postgresql_version }}/bin/pg_basebackup --progress --verbose --host='{{ cls1.stdout }}' --port={{ postgresql_port }} --username={{ patroni_replica_login }} --pgdata={{ postgresql_data_dir }} --waldir={{ postgresql_wal_dir }} --wal-method=stream --write-recovery-conf
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 2 and postgresql_on_mounted_disk == true
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- name: restore postgresql on ansible_set_patroni_id == 2
+# shell: sudo -iu postgres PGPASSWORD={{ patroni_replica_password }} /usr/pgsql-{{ postgresql_version }}/bin/pg_basebackup --progress --verbose --host='{{ cls1.stdout }}' --por$
+  shell: sudo -iu postgres PGPASSWORD={{ patroni_replica_password }} /usr/pgsql-{{ postgresql_version }}/bin/pg_basebackup --progress --verbose --host='{{ cls1.stdout }}' --port={{ postgresql_port }} --username={{ patroni_replica_login }} --pgdata={{ postgresql_data_dir }} --wal-method=stream --write-recovery-conf
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 2 and postgresql_on_mounted_disk == false
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- name: patroni service start & enable on ansible_set_patroni_id == 2
+  service: name=patroni state=started enabled=yes
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 2
+  tags: [patroni_init]
+
+- name: pause 30 seconds
+  pause:
+    seconds: 30
+  run_once: true
+  tags: [patroni_init]
+
+- name: patronictl restart
+  shell: curl -X POST http://127.0.0.1:8008/restart
+  run_once: true
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- name: pause 1 min
+  pause:
+    minutes: 1
+  run_once: true
+  tags: [patroni_init]
+
+- name: patroni service restart & enable on ansible_set_patroni_id == 2
+  service: name=patroni state=restarted enabled=yes
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 2
+  tags: [patroni_init]
+
+- name: pause 1 min
+  pause:
+    minutes: 1
+  run_once: true
+  tags: [patroni_init]
+
+- name: postgresql.base.conf | synchronous_commit = 'remote_apply'
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.base.conf"
+    line: synchronous_commit = 'remote_apply'
+    regexp: '^synchronous_commit '
+    insertafter: '^#synchronous_commit '
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id != 3
+  tags: [patroni_init]
+
+- name: patronictl restart
+  shell: curl -X POST http://127.0.0.1:8008/restart
+  run_once: true
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- name: pause 2 min
+  pause:
+    minutes: 2
+  run_once: true
+  tags: [patroni_init]
+
+- name: patroni service start & enable on ansible_set_patroni_id == 3
+  service: name=patroni state=started enabled=yes
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 3
+  tags: [patroni_init]
+
+- name: pause 2 min
+  pause:
+    minutes: 2
+  run_once: true
+  tags: [patroni_init]
+
+- name: patroni service restart & enable on ansible_set_patroni_id == 3
+  service: name=patroni state=restarted enabled=yes
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 3
+  tags: [patroni_init]
+
+- name: pause 30 seconds
+  pause:
+    seconds: 30
+  run_once: true
+  tags: [patroni_init]
+
+- name: patroni service restart & enable on ansible_set_patroni_id == 2
+  service: name=patroni state=restarted enabled=yes
+  when: hostvars[inventory_hostname_short].ansible_set_patroni_id == 2
+  tags: [patroni_init]
+
+- name: pause 30 seconds
+  pause:
+    seconds: 30
+  run_once: true
+  tags: [patroni_init]
+
+- name : show cluster
+  shell: /usr/bin/patronictl list
+  register: patroni_cluster
+  run_once: true
+  tags: [patroni_init]
+
+- debug: var=patroni_cluster.stdout_lines
+  run_once: true
+  tags: [patroni_init]
+
+- name : show synchronous_commit
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -t -c "SELECT name, setting FROM pg_settings WHERE name ilike 'synchronous_commit';"
+  register: patroni_synchronous_commit
+  run_once: true
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- debug: var=patroni_synchronous_commit.stdout
+  run_once: true
+  tags: [patroni_init]
+
+- name : show replication
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -X -c "SELECT application_name,client_addr,usename,state,sync_state,sync_priority,write_lag,flush_lag,replay_lag FROM pg_stat_replication;"
+  register: pg_replication
+  run_once: true
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- debug: var=pg_replication.stdout_lines
+  run_once: true
+  tags: [patroni_init]
+
+- name: pause 2 min
+  pause:
+    minutes: 2
+  run_once: true
+  tags: [patroni_init]
+
+- name : rm no need files
+  shell: "rm -f /var/lib/pgsql/13/data/backup_*"
+  args:
+     warn: no
+  tags: [patroni_init]
+
+- name: Print commands for test PostgreSQL, pgBouncer, pgPool
+  vars:
+    msg: |
+         PGPASSWORD=secret psql -xtA -h {{ patroni_fqdn }} -p {{ postgresql_port }} -U foo -d pgedb -c 'select hostname();' # postgres
+         PGPASSWORD=secret psql -xtA -h {{ patroni_fqdn }} -p 6432 -U foo -d pgedb -c 'select hostname();' | sed -n '1p' # pgbouncer
+         PGPASSWORD=secret psql -xtA -h {{ patroni_fqdn }} -p 9999 -U foo -d pgedb -c 'select hostname();' | sed -n '1p' # pgpool
+         PGPASSWORD=secret psql -xtA -h {{ patroni_fqdn }} -p 9999 -U foo -d pgedb -c 'select hostname();' | sed -n '1p' # pgpool
+         PGPASSWORD=secret psql -xtA -h {{ patroni_fqdn }} -p 9999 -U foo -d pgedb -c 'select hostname();' | sed -n '1p' # pgpool
+         PGPASSWORD=secret psql -xtA -h {{ patroni_fqdn }} -p 9999 -U foo -d pgedb -c 'select hostname();' | sed -n '1p' # pgpool
+         PGPASSWORD=secret psql -xtA -h {{ patroni_fqdn }} -p 9999 -U foo -d pgedb -c 'select hostname();' | sed -n '1p' # pgpool
+  debug:
+    msg: "{{ msg.split('\n') }}"
+  run_once: true
+  tags: [patroni_init]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [patroni_init]

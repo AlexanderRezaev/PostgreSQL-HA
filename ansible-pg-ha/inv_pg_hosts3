@@ -1,0 +1,14 @@
+[dcs_cluster]
+o8-h1 ansible_set_fqdn=o8-h1.lab.local ansible_set_ip=172.27.172.203 ansible_dcs_id=1
+o8-h2 ansible_set_fqdn=o8-h2.lab.local ansible_set_ip=172.27.172.204 ansible_dcs_id=2
+o8-h3 ansible_set_fqdn=o8-h3.lab.local ansible_set_ip=172.27.172.205 ansible_dcs_id=3
+
+[postgresql_cluster]
+o8-h1 ansible_set_fqdn=o8-h1.lab.local ansible_set_ip=172.27.172.203 ansible_set_patroni_id=1
+o8-h2 ansible_set_fqdn=o8-h2.lab.local ansible_set_ip=172.27.172.204 ansible_set_patroni_id=2
+o8-h3 ansible_set_fqdn=o8-h3.lab.local ansible_set_ip=172.27.172.205 ansible_set_patroni_id=3
+
+[ipsec_enable]
+o8-h1 ansible_set_fqdn=o8-h1.lab.local ansible_set_ip=172.27.172.203
+o8-h2 ansible_set_fqdn=o8-h2.lab.local ansible_set_ip=172.27.172.204
+o8-h3 ansible_set_fqdn=o8-h3.lab.local ansible_set_ip=172.27.172.205

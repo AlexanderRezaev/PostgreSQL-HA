@@ -1,0 +1,426 @@
+---
+- local_action: command hostname
+  register: hst
+  run_once: true
+  tags: [postgres_preset]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [postgres_preset]
+
+- name: Check all servers DCS & PostgreSQL are available
+  vars:
+    HOST_RUN_COUNT: "{{ ansible_play_batch | length }}"
+    HOST_ALL_COUNT: "{{ ansible_play_hosts | length }}"
+  ansible.builtin.debug:
+    msg: "{{ HOST_ALL_COUNT }} != {{ HOST_RUN_COUNT }} - configuring must be performed on ALL machines only"
+  failed_when: HOST_ALL_COUNT != HOST_RUN_COUNT
+  tags: [postgres_preset]
+
+- name: Check if PostgreSQL database is initialized
+  stat:
+    path: "{{ postgresql_data_dir }}/PG_VERSION"
+  register: pgdata_dir_version
+  tags: [postgres_preset]
+
+- name: stop if is not initialized
+  debug: msg="postgresql {{ postgresql_version }} is initialized"
+  failed_when: not pgdata_dir_version.stat.exists
+  tags: [postgres_preset]
+
+#- name: create empty file {{ postgresql_data_dir }}/freespace.empty 1GB (need 100GB ??)
+#  shell: fallocate -l $((1*1024*1024*1024)) "{{ postgresql_data_dir }}/freespace.empty"
+#  tags: [postgres_preset]
+
+#- name: permission on empty file {{ postgresql_data_dir }}/freespace.empty
+#  file:
+#    path: "{{ postgresql_data_dir }}/freespace.empty"
+#    owner: postgres
+#    group: postgres
+#    mode: 0700
+
+- name: Save postgresql.conf
+  ansible.builtin.copy:
+    src: "{{ postgresql_data_dir }}/postgresql.conf"
+    dest: "{{ postgresql_data_dir }}/postgresql_{{ lookup('pipe','date +%Y%m%d_%H%M') }}.conf"
+    remote_src: yes
+    owner: postgres
+    group: postgres
+    mode: 0600
+
+- name: set timezone
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: timezone = 'Etc/UTC'
+    regexp: '^timezone '
+    insertafter: '^#timezone '
+  tags: [postgres_preset]
+
+- name: set datestyle
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: datestyle = 'iso, ymd'
+    regexp: '^datestyle '
+    insertafter: '^#datestyle '
+  tags: [postgres_preset]
+
+- name: set listen_addresses
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+#    line: listen_addresses = '127.0.0.1,{{ hostvars[inventory_hostname].ansible_set_ip }}'
+    line: listen_addresses = '*'
+    regexp: '^listen_addresses '
+    insertafter: '^#listen_addresses '
+  tags: [postgres_preset]
+
+- name: set port
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: port = {{ postgresql_port }}
+    regexp: '^port '
+    insertafter: '^#port '
+  tags: [postgres_preset]
+
+- name: set max_connections
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: max_connections = 1000
+    regexp: '^max_connections '
+    insertafter: '^#max_connections '
+  tags: [postgres_preset]
+
+- name: set superuser_reserved_connections
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: superuser_reserved_connections = 15
+    regexp: '^superuser_reserved_connections '
+    insertafter: '^#superuser_reserved_connections '
+  tags: [postgres_preset]
+
+- name: set log_destination
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: log_destination = 'csvlog'
+    regexp: '^log_destination '
+    insertafter: '^#log_destination '
+  tags: [postgres_preset]
+
+- name: set log_line_prefix
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: log_line_prefix = '%m [%p] [%h] '
+    regexp: '^log_line_prefix '
+    insertafter: '^#log_line_prefix '
+  tags: [postgres_preset]
+
+- name: set log_min_duration_statement
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: log_min_duration_statement = 2000
+    regexp: '^log_min_duration_statement '
+    insertafter: '^#log_min_duration_statement '
+  tags: [postgres_preset]
+
+- name: set log_lock_waits
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: log_lock_waits = on
+    regexp: '^log_lock_waits '
+    insertafter: '^#log_lock_waits '
+  tags: [postgres_preset]
+
+- name: set log_statement
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: log_statement = 'ddl'
+    regexp: '^log_statement '
+    insertafter: '^#log_statement '
+  tags: [postgres_preset]
+
+- name: set track_counts
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: track_counts = 'on'
+    regexp: '^track_counts '
+    insertafter: '^#track_counts '
+  tags: [postgres_preset]
+
+- name: set track_activities
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: track_activities = 'on'
+    regexp: '^track_activities '
+    insertafter: '^#track_activities '
+  tags: [postgres_preset]
+
+- name: set track_io_timing
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: track_io_timing = 'on'
+    regexp: '^track_io_timing '
+    insertafter: '^#track_io_timing '
+  tags: [postgres_preset]
+
+- name: set archive_mode
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: archive_mode = on
+    regexp: '^archive_mode '
+    insertafter: '^#archive_mode '
+  tags: [postgres_preset]
+
+- name: set wal_keep_segments
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: wal_keep_segments = 10
+    regexp: '^wal_keep_segments '
+    insertafter: '^#wal_keep_segments '
+  when: postgresql_version|int < 13
+  tags: [postgres_preset]
+
+- name: set wal_keep_size
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: wal_keep_size = 800
+    regexp: '^wal_keep_size '
+    insertafter: '^#wal_keep_size '
+  when: postgresql_version|int > 12
+  tags: [postgres_preset]
+
+- name: set shared_preload_libraries
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: shared_preload_libraries = 'pg_stat_statements,pg_buffercache,auto_explain'
+    regexp: '^shared_preload_libraries '
+    insertafter: '^#shared_preload_libraries '
+  tags: [postgres_preset]
+
+- name: Add pg_stat_statements Settings
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    insertafter: EOF
+    line: "{{ item }}"
+  with_items:
+    - pg_stat_statements.max = 15000
+    - pg_stat_statements.track = top
+  tags: [postgres_preset]
+
+- name: Add auto_explain Settings
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    insertafter: EOF
+    line: "{{ item }}"
+  with_items:
+    - auto_explain.log_min_duration = 500
+    - auto_explain.log_analyze = on
+    - auto_explain.log_buffers = on
+    - auto_explain.log_timing = off
+    - auto_explain.log_triggers = on
+  tags: [postgres_preset]
+
+- name: copy archive_wal.sh
+  template:
+    src: archive_wal.sh
+    dest: "{{ postgresql_data_dir }}/archive_wal.sh"
+    owner: postgres
+    group: postgres
+    mode: 0700
+  tags: [postgres_preset]
+
+- name: set archive_command
+  lineinfile:
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: archive_command = '/bin/bash {{ postgresql_data_dir }}/archive_wal.sh %p %f'
+    regexp: '^archive_command '
+    insertafter: '^#archive_command '
+  tags: [postgres_preset]
+
+- name: Save pg_hba.conf
+  ansible.builtin.copy:
+    src: "{{ postgresql_data_dir }}/pg_hba.conf"
+    dest: "{{ postgresql_data_dir }}/pg_hba_{{ lookup('pipe','date +%Y%m%d_%H%M') }}.conf"
+    remote_src: yes
+    owner: postgres
+    group: postgres
+    mode: 0600
+
+- name: create pg_hba.conf
+  template:
+    src: pg_hba.conf
+    dest: "{{ postgresql_data_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: 0600
+  tags: [postgres_preset]
+
+#- name: set home admin 'foo'
+#  lineinfile:
+#    path: "{{ postgresql_data_dir }}/pg_hba.conf"
+#    line: host	all             foo             0.0.0.0/0               md5
+#    regexp: '.*foo.*md5.*'
+#  tags: [postgres_preset]
+
+#- name: set AD auth
+#  lineinfile:
+#    path: "{{ postgresql_data_dir }}/pg_hba.conf"
+#    line: host	all		all		0.0.0.0/0		ldap ldapserver="lab-dc.lab.local lab-dc.lab.local" ldapprefix="" ldapsuffix="@LAB.LOCAL"
+#    regexp: '.*all.*all.*ldap.*'
+#  tags: [postgres_preset]
+
+- name: daemon reload
+  command: systemctl daemon-reload
+
+- name: postgresql service
+  service: name=postgresql-{{ postgresql_version }} state=started enabled=yes
+  tags: [postgres_preset]
+
+- name: check home admin 'foo' exists
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'foo'"
+  register: pgfoo_rc
+  args: 
+     warn: no
+  tags: [postgres_preset]
+
+- name: create home admin 'foo'
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "CREATE USER foo WITH LOGIN SUPERUSER INHERIT CREATEDB CREATEROLE PASSWORD 'secret';"
+  when: pgfoo_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [postgres_preset]
+
+- name: check database pgedb exists
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -XAt -c "SELECT 1 FROM pg_database WHERE datname = 'pgedb'"
+  register: pgedb_rc
+  args:
+    warn: no
+  tags: [postgres_preset]
+
+- name: create database pgedb
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "CREATE DATABASE pgedb WITH OWNER = postgres ENCODING = 'UTF8' CONNECTION LIMIT = -1;"
+  when: pgedb_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [postgres_preset]
+
+- name: create comment on database pgedb
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -c "COMMENT ON DATABASE pgedb IS 'Owner = DBA';"
+  when: pgedb_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [postgres_preset]
+
+- name: Generate pgedb.sql
+  template:
+    src: pgedb.sql
+    dest: "{{ postgresql_root_dir }}/backups/pgedb.sql"
+    owner: postgres
+    group: postgres
+  when: pgedb_rc.stdout != "1"
+  tags: [postgres_preset]
+
+- name: Execute pgedb.sql
+  shell: sudo -iu postgres psql -p {{ postgresql_port }} -d pgedb -f "{{ postgresql_root_dir }}/backups/pgedb.sql"
+  when: pgedb_rc.stdout != "1"
+  args:
+    warn: no
+  tags: [postgres_preset]
+
+- block:
+
+  - name: Generate pglog.sql
+    template:
+      src: pglog.sql
+      dest: "{{ postgresql_root_dir }}/backups/pglog.sql"
+      owner: postgres
+      group: postgres
+    when: pgedb_rc.stdout != "1"
+    tags: [postgres_preset]
+
+  - name: creates cron task for log_switch
+    ansible.builtin.cron:
+      name: "Cron Task for log_switch"
+      minute: "0"
+      user: postgres
+      job: psql -p {{ postgresql_port }} -d pgedb -c "SET client_min_messages TO error; select public.log_switch();" 2>&1 1>/dev/null || true
+    when: pgedb_rc.stdout != "1" and install_pgagent == false
+    tags: [postgres_preset]
+
+  - name: creates cron task for vacuum
+    ansible.builtin.cron:
+      name: "Cron Task for vacuum"
+      minute: "5"
+      hour: "1"
+      user: postgres
+      job: PORT={{ postgresql_port }} /var/lib/pgsql/vacuum.sh 2>&1 1>/dev/null || true
+    when: pgedb_rc.stdout != "1" and install_pgagent == false
+    tags: [postgres_preset]
+
+  - name: creates cron task for analyze
+    ansible.builtin.cron:
+      name: "Cron Task for analyze"
+      minute: "5"
+      hour: "6"
+      user: postgres
+      job: PORT={{ postgresql_port }} /var/lib/pgsql/analyze.sh 2>&1 1>/dev/null || true
+    when: pgedb_rc.stdout != "1" and install_pgagent == false
+    tags: [postgres_preset]
+
+  - name: creates cron task for kill idle in transaction
+    ansible.builtin.cron:
+      name: "Cron Task for kill idle in transaction"
+      minute: "2-59/15"
+      user: postgres
+      job: psql -p {{ postgresql_port }} -d pgedb -c "INSERT INTO public.log_kills(kill ,killer ,typekill ,ok ,datid ,datname ,pid ,usesysid ,usename ,application_name ,client_addr ,client_hostname ,client_port ,backend_start ,xact_start ,query_start ,state_change ,wait_event_type ,wait_event ,state ,backend_xid ,backend_xmin ,backend_type ,query) SELECT clock_timestamp() as kill ,session_user as killer ,'terminate' as typekill ,pg_terminate_backend(pid) as ok ,datid ,datname ,pid ,usesysid ,usename ,application_name ,client_addr ,client_hostname ,client_port ,backend_start ,xact_start ,query_start ,state_change ,wait_event_type ,wait_event ,state ,backend_xid ,backend_xmin ,backend_type ,query FROM pg_catalog.pg_stat_activity WHERE state in ('idle in transaction', 'idle in transaction (aborted)') AND current_timestamp - state_change > interval '30 minutes' AND backend_type = 'client backend' AND pid <> pg_backend_pid();" 2>&1 1>/dev/null || true
+    when: pgedb_rc.stdout != "1" and install_pgagent == false
+    tags: [postgres_preset]
+
+  - name: set log_filename
+    lineinfile:
+      path: "{{ postgresql_data_dir }}/postgresql.conf"
+      line: log_filename = 'postgresql-%a-%H.log'
+      regexp: '^log_filename '
+      insertafter: '^#log_filename '
+    when: pgedb_rc.stdout != "1"
+    tags: [postgres_preset]
+
+  - name: set log_rotation_age
+    lineinfile:
+      path: "{{ postgresql_data_dir }}/postgresql.conf"
+      line: log_rotation_age = 1h
+      regexp: '^log_rotation_age '
+      insertafter: '^#log_rotation_age '
+    when: pgedb_rc.stdout != "1"
+    tags: [postgres_preset]
+
+  - name: postgresql service
+    service: name=postgresql-{{ postgresql_version }} state=restarted enabled=yes
+    when: pgedb_rc.stdout != "1"
+    tags: [postgres_preset]
+
+  - name: Execute pgedb.sql
+    shell: sudo -iu postgres psql -p {{ postgresql_port }} -d pgedb -f "{{ postgresql_root_dir }}/backups/pglog.sql"
+    when: pgedb_rc.stdout != "1"
+    args:
+      warn: no
+    tags: [postgres_preset]
+
+- block:
+
+  - name: Copy Scripts to /var/lib/pgsql
+    template: src={{ item }} dest="/var/lib/pgsql/{{ item }}" mode=0700 owner=postgres group=postgres
+    with_items:
+      - DiskUsage.sh
+      - SendLocks.sh
+      - AutoShutdownPG.sh
+    tags: [postgres_preset]
+
+  - name: Copy Scripts to /var/lib/pgsql
+    template: src={{ item }} dest="/var/lib/pgsql/{{ item }}" mode=0750 owner=postgres group=postgres
+    with_items:
+      - analyze.sh
+      - vacuum.sh
+    tags: [postgres_preset]
+
+- name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
+  shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
+  tags: [postgres_preset]

@@ -1,0 +1,23 @@
+---
+# имя любого tags не должно входить в имя любого tags, кроме себя самого
+
+- debug: msg="Please, specify the --tags"
+  when: "'all' in ansible_run_tags"
+  tags: [postgres_install,postgres_preset,pgagent_install,postgres_remove]
+
+- meta: end_play
+  when: "'all' in ansible_run_tags"
+  tags: [postgres_install,postgres_preset,pgagent_install,postgres_remove]
+
+- include: install.yml
+  tags: [postgres_install]
+
+- include: preset.yml
+  tags: [postgres_preset]
+
+- include: pgagent.yml
+  when: install_pgagent == true
+  tags: [pgagent_install]
+
+- include: remove.yml
+  tags: [postgres_remove]
