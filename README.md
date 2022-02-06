@@ -1,5 +1,7 @@
 **Кластер PostgreSQL высокой доступности без потери транзакций и с защитой от split-brain.**
 
+---
+
 Замечание
 
 > Понятие кластеризации несколько шире (см <https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/7282>)
