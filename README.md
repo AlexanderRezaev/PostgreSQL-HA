@@ -57,7 +57,7 @@ PostgreSQL поддерживает три возможных компромис
 
 Также является важным параметр **synchronous\_commit**
 
-https://www.enterprisedb.com/blog/why-use-synchronous-replication-in-postgresql-configure-streaming-replication-wal>
+<https://www.enterprisedb.com/blog/why-use-synchronous-replication-in-postgresql-configure-streaming-replication-wal>
 
 Когда произошел сбой, транзакции, которые находились на пути от walsender к процессу walreceiver, были потеряны.
 
@@ -97,10 +97,10 @@ https://www.enterprisedb.com/blog/why-use-synchronous-replication-in-postgresql-
 
 Для автоматической работы кластера требуется выполнение дополнительных действий: определение, в случае падения master, кто станет следующим master, а так же выполнение операций по перенастройке PostgreSQL на узлах, промоут роли в кластере, синхронизация реплики и запуск PostgreSQL. Всё это выливается в достаточно внушительный список операций.
 
-Для выполнения всего перечисленного предпочтительнее использовать Patroni ([https://github.com/zalando/patroni]()) - оркестратор работы высокодоступного кластера PostgreSQL (PostgreSQL High-Available Orchestrator)
+Для выполнения всего перечисленного предпочтительнее использовать Patroni (<https://github.com/zalando/patroni>) - оркестратор работы высокодоступного кластера PostgreSQL (PostgreSQL High-Available Orchestrator)
 
 Учитывая наличие в Patroni callback скриптов, достаточно просто реализовать Cluster IP.
 
-[https://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback]()
+<https://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback>
 
-Для работы Cluster IP в сегментированных корпоративных сетях используется ARP announcements [https://en.wikipedia.org/wiki/Address_Resolution_Protocol#ARP_announcements]() (используется pgpool).
+Для работы Cluster IP в сегментированных корпоративных сетях используется ARP announcements <https://en.wikipedia.org/wiki/Address_Resolution_Protocol#ARP_announcements> (используется pgpool).
