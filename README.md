@@ -97,14 +97,12 @@
 
 **Вышеперечисленного достаточно, чтобы вручную построить кластер.**
 
-------------------------------------------------------------------------------------------------------------------
+---
 
 Для автоматической работы кластера требуется выполнение дополнительных действий: определение, в случае падения master, кто станет следующим master, а так же выполнение операций по перенастройке PostgreSQL на узлах, промоут роли в кластере, синхронизация реплики и запуск PostgreSQL. Всё это выливается в достаточно внушительный список операций.
 
 Для выполнения всего перечисленного предпочтительнее использовать Patroni (<https://github.com/zalando/patroni>) - оркестратор работы высокодоступного кластера PostgreSQL (PostgreSQL High-Available Orchestrator)
 
-Учитывая наличие в Patroni callback скриптов, достаточно просто реализовать Cluster IP.
-
-<https://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback>
+Учитывая наличие в Patroni callback скриптов, достаточно просто реализовать Cluster IP <https://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback>
 
 Для работы Cluster IP в сегментированных корпоративных сетях используется ARP announcements <https://en.wikipedia.org/wiki/Address_Resolution_Protocol#ARP_announcements> (используется pgpool).
