@@ -119,7 +119,7 @@
 #        - patroni-etcd-2.1.1-1.rhel8.x86_64.rpm
 
       pg_profile_package:
-        - pg_profile--0.3.4.tar.gz
+        - pg_profile--0.3.6.tar.gz
 
     roles:
 

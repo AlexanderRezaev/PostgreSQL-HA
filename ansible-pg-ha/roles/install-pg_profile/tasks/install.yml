@@ -25,7 +25,7 @@
 
   - name: Copy pg_profile package
     copy:
-      src: "{{ postgresql_src }}/pg_profile--0.3.4.tar.gz"
+      src: "{{ postgresql_src }}/pg_profile--0.3.6.tar.gz"
       dest: "/tmp/pg"
 
   when:	installation ==	'offline'
@@ -34,14 +34,14 @@
   block:
 
   - name: download
-    shell: curl -L "{{ PGPROFILE_DOWNLOAD_URL }}/pg_profile--0.3.4.tar.gz" -o "/tmp/pg/pg_profile--0.3.4.tar.gz"
+    shell: curl -L "{{ PGPROFILE_DOWNLOAD_URL }}/pg_profile--0.3.6.tar.gz" -o "/tmp/pg/pg_profile--0.3.6.tar.gz"
     args:
       warn: no
 
   when: installation == 'online'
 
 - name: Install pg_profile package
-  shell: "tar xzf /tmp/pg/pg_profile--0.3.4.tar.gz --directory $(/usr/pgsql-{{ postgresql_version }}/bin/pg_config --sharedir)/extension"
+  shell: "tar xzf /tmp/pg/pg_profile--0.3.6.tar.gz --directory $(/usr/pgsql-{{ postgresql_version }}/bin/pg_config --sharedir)/extension"
   args:
     warn: no
 
