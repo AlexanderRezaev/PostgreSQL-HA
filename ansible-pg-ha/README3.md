@@ -29,3 +29,4 @@ ansible-playbook -i inv_pg_hosts3 --tags patroni_init pgcluster3.yml
 ansible-playbook -i inv_pg_hosts3 --tags pg_profile_install pgcluster3.yml
 ansible-playbook -i inv_pg_hosts3 --tags ipsec_install pgcluster3.yml
 ```
+cat README3.md | grep -v '```' | nocomments
