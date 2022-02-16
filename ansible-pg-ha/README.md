@@ -1,41 +1,41 @@
 Установка с помощью ANSIBLE
 
-#<B>подготовка работы ansible. заполнение .ssh/known_hosts и выполнение ssh-copy-id</B><BR>
+<B>#подготовка работы ansible. заполнение .ssh/known_hosts и выполнение ssh-copy-id</B><BR>
 ansible-playbook -i inv_pg_hosts1 ssh-known_hosts.yml<BR>
 ansible-playbook -i inv_pg_hosts1 ssh-copy-id.yml<BR>
 
-#проверка доступности серверов перед установкой с помощью ansible
-ansible dcs_cluster -i inv_pg_hosts1 -m ping
+<B>#проверка доступности серверов перед установкой с помощью ansible</B><BR>
+ansible dcs_cluster -i inv_pg_hosts1 -m ping<BR>
 
-#установка DCS (Distributed Configuration Store) для patroni. Или etcd3, или zookeeper
-#ansible-playbook -i inv_pg_hosts1 --tags zookeeper_install pgcluster1.yml
-ansible-playbook -i inv_pg_hosts1 --tags etcd3_install pgcluster1.yml
+<B>#установка DCS (Distributed Configuration Store) для patroni. Или etcd3, или zookeeper</B><BR>
+#ansible-playbook -i inv_pg_hosts1 --tags zookeeper_install pgcluster1.yml<BR>
+ansible-playbook -i inv_pg_hosts1 --tags etcd3_install pgcluster1.yml<BR>
 
-#проверка доступности серверов перед установкой с помощью ansible
-ansible postgresql_cluster -i inv_pg_hosts1 -m ping
+<B>#проверка доступности серверов перед установкой с помощью ansible</B><BR>
+ansible postgresql_cluster -i inv_pg_hosts1 -m ping<BR>
 
-#установка postgresql
-ansible-playbook -i inv_pg_hosts1 --tags postgres_install pgcluster1.yml
+<B>#установка postgresql</B><BR>
+ansible-playbook -i inv_pg_hosts1 --tags postgres_install pgcluster1.yml<BR>
 
-#настройка postgresql
-ansible-playbook -i inv_pg_hosts1 --tags postgres_preset pgcluster1.yml
+<B>#настройка postgresql</B><BR>
+ansible-playbook -i inv_pg_hosts1 --tags postgres_preset pgcluster1.yml<BR>
 
-#установка pgagent, pgbouncer, pgpool
-ansible-playbook -i inv_pg_hosts1 --tags pgagent_install pgcluster1.yml
-ansible-playbook -i inv_pg_hosts1 --tags pgbouncer_install pgcluster1.yml
-ansible-playbook -i inv_pg_hosts1 --tags pgpool_install pgcluster1.yml
+<B>#установка pgagent, pgbouncer, pgpool</B><BR>
+ansible-playbook -i inv_pg_hosts1 --tags pgagent_install pgcluster1.yml<BR>
+ansible-playbook -i inv_pg_hosts1 --tags pgbouncer_install pgcluster1.yml<BR>
+ansible-playbook -i inv_pg_hosts1 --tags pgpool_install pgcluster1.yml<BR>
 
-#установка patroni
-ansible-playbook -i inv_pg_hosts1 --tags patroni_install pgcluster1.yml
+<B>#установка patroni</B><BR>
+ansible-playbook -i inv_pg_hosts1 --tags patroni_install pgcluster1.yml<BR>
 
-#конфигурирование кластера postgresql с синхронной репликацией
-ansible-playbook -i inv_pg_hosts1 --tags patroni_config_sync pgcluster1.yml
+<B>#конфигурирование кластера postgresql с синхронной репликацией</B><BR>
+ansible-playbook -i inv_pg_hosts1 --tags patroni_config_sync pgcluster1.yml<BR>
 
-#инициализация кластера
-ansible-playbook -i inv_pg_hosts1 --tags patroni_init pgcluster1.yml
+<B>#инициализация кластера</B><BR>
+ansible-playbook -i inv_pg_hosts1 --tags patroni_init pgcluster1.yml<BR>
 
-#установка в кластер pg_profile extension
-ansible-playbook -i inv_pg_hosts1 --tags pg_profile_install pgcluster1.yml
+<B>#установка в кластер pg_profile extension</B><BR>
+ansible-playbook -i inv_pg_hosts1 --tags pg_profile_install pgcluster1.yml<BR>
 
-#настройка шифрации сетевого трафика между серверами кластера
-ansible-playbook -i inv_pg_hosts1 --tags ipsec_install pgcluster1.yml
+<B>#настройка шифрации сетевого трафика между серверами кластера</B><BR>
+ansible-playbook -i inv_pg_hosts1 --tags ipsec_install pgcluster1.yml<BR>
