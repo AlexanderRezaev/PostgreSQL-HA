@@ -1,4 +1,6 @@
-Установка с помощью ANSIBLE
+<B>Установка с помощью ANSIBLE</B>
+
+<B>#Тестировалось на Rocky (CentOS) Linux 8.5, RedHat Linux 8.5, Oracle Linux 8.5</B>
 
 <B>#подготовка работы ansible. заполнение .ssh/known_hosts и выполнение ssh-copy-id</B><BR>
 ansible-playbook -i inv_pg_hosts1 ssh-known_hosts.yml<BR>
