@@ -33,7 +33,7 @@
   dnf:
     name: libreswan
     state: latest
-  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky'
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky' or ansible_distribution == 'RED'
   tags: [ipsec_install]
 
 - name: Install the latest version of libreswan ipsec
@@ -43,23 +43,42 @@
   when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
   tags: [ipsec_install]
 
-- name: Check if IPSec is initialized on CentOS.
+- name: Check if IPSec is initialized on RedHat.
   stat:
     path: "/etc/ipsec.d/cert9.db"
   register: ipsec_init_c
-  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky'
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux'
   tags: [ipsec_install]
 
-- name: Check if IPSec is initialized on Ubuntu.
+- name: Check if IPSec is initialized on RED.
+  stat:
+    path: "/etc/ipsec.d/cert9.db"
+  register: ipsec_init_c
+  when: ansible_distribution == 'Rocky' or ansible_distribution == 'RED'
+  tags: [ipsec_install]
+
+- name: Check if IPSec is initialized on Debian.
   stat:
     path: "/var/lib/ipsec/nss/cert9.db"
   register: ipsec_init_u
   when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
   tags: [ipsec_install]
 
-- name: ipsec initnss
+#- name: rm /etc/ipsec.d/*.db
+#  shell: rm -rf /etc/ipsec.d/*
+#  args:
+#    warn: no
+#  when: not ipsec_init_c.stat.exists
+#  tags: [ipsec_install]
+
+- name: ipsec initnss on RedHat
   shell: ipsec initnss --nssdir /etc/ipsec.d
-  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'Rocky') or ansible_distribution == 'OracleLinux' and not ipsec_init_c.stat.exists
+  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux') and not ipsec_init_c.stat.exists
+  tags: [ipsec_install]
+
+- name: ipsec initnss on RED
+  shell: ipsec initnss --nssdir /etc/ipsec.d
+  when: (ansible_distribution == 'Rocky' or ansible_distribution == 'RED') and not ipsec_init_c.stat.exists
   tags: [ipsec_install]
 
 - name: ipsec initnss
@@ -73,15 +92,19 @@
   register: ipsec_hostkey
   tags: [ipsec_install]
 
-- name: ipsec newhostkey
-#  shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
-  shell: ipsec newhostkey --nssdir /etc/ipsec.d
-  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'Rocky') or ansible_distribution == 'OracleLinux' and not ipsec_hostkey.stat.exists
+- name: ipsec newhostkey on RedHat
+  shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
+  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux') and not ipsec_hostkey.stat.exists
   tags: [ipsec_install]
 
-- name: ipsec newhostkey
+- name: ipsec newhostkey on RED
+  shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
+  when: (ansible_distribution == 'Rocky' or ansible_distribution == 'RED') and not ipsec_hostkey.stat.exists
+  tags: [ipsec_install]
+
+- name: ipsec newhostkey on Debian
   shell: ipsec newhostkey --nssdir /var/lib/ipsec/nss --output /etc/ipsec.d/hostkey.secrets
-  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and not ipsec_hostkey.stat.exists
+  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and not ipsec_hostkey.stat.exists 
   tags: [ipsec_install]
 
 - name: ipsec left hostkey
