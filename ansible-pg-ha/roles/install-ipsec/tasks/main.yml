@@ -236,7 +236,7 @@
 
     when: ansible_distribution == 'ALT Server'
 
-  - name: config altlinux
+  - name: config astralinux
     block:
 
     - name: set PSK
