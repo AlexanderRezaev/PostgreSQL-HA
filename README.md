@@ -182,6 +182,7 @@ Are you sure you want to failover cluster c8-cls, demoting current master c8-h2?
 | c8-h3  | c8-h3:5434 | Leader  | running  |  5 |           |
 +--------+------------+---------+----------+----+-----------+
 
+root@c8-h1:~# # запускаем через минуту
 root@c8-h1:~# patronictl list
 +--------+------------+---------+---------+----+-----------+
 | Member | Host       | Role    | State   | TL | Lag in MB |
