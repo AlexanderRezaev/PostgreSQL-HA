@@ -117,31 +117,31 @@ root@c8-h1:~# patronictl --help<BR>
 Usage: patronictl [OPTIONS] COMMAND [ARGS]...
 
 Options:<BR>
-  -c, --config-file TEXT  Configuration file<BR>
-  -d, --dcs TEXT          Use this DCS<BR>
-  -k, --insecure          Allow connections to SSL sites without certs<BR>
-  --help                  Show this message and exit.
+  -c, --config-file TEXT  # Configuration file<BR>
+  -d, --dcs TEXT          # Use this DCS<BR>
+  -k, --insecure          # Allow connections to SSL sites without certs<BR>
+  --help                  # Show this message and exit.
 
 Commands:<BR>
-  configure    Create configuration file<BR>
-  dsn          Generate a dsn for the provided member, defaults to a dsn...<BR>
-  edit-config  Edit cluster configuration<BR>
-  failover     Failover to a replica<BR>
-  flush        Discard scheduled events<BR>
-  history      Show the history of failovers/switchovers<BR>
-  list         List the Patroni members for a given Patroni<BR>
-  pause        Disable auto failover<BR>
-  query        Query a Patroni PostgreSQL member<BR>
-  reinit       Reinitialize cluster member<BR>
-  reload       Reload cluster member configuration<BR>
-  remove       Remove cluster from DCS<BR>
-  restart      Restart cluster member<BR>
-  resume       Resume auto failover<BR>
-  scaffold     Create a structure for the cluster in DCS<BR>
-  show-config  Show cluster configuration<BR>
-  switchover   Switchover to a replica<BR>
-  topology     Prints ASCII topology for given cluster<BR>
-  version      Output version of patronictl command or a running Patroni...
+  configure    # Create configuration file<BR>
+  dsn          # Generate a dsn for the provided member, defaults to a dsn...<BR>
+  edit-config  # Edit cluster configuration<BR>
+  failover     # Failover to a replica<BR>
+  flush        # Discard scheduled events<BR>
+  history      # Show the history of failovers/switchovers<BR>
+  list         # List the Patroni members for a given Patroni<BR>
+  pause        # Disable auto failover<BR>
+  query        # Query a Patroni PostgreSQL member<BR>
+  reinit       # Reinitialize cluster member<BR>
+  reload       # Reload cluster member configuration<BR>
+  remove       # Remove cluster from DCS<BR>
+  restart      # Restart cluster member<BR>
+  resume       # Resume auto failover<BR>
+  scaffold     # Create a structure for the cluster in DCS<BR>
+  show-config  # Show cluster configuration<BR>
+  switchover   # Switchover to a replica<BR>
+  topology     # Prints ASCII topology for given cluster<BR>
+  version      # Output version of patronictl command or a running Patroni...
 
 
 root@c8-h1:~# patronictl list<BR>
