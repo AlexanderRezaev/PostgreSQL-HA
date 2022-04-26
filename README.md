@@ -145,13 +145,13 @@ Commands:<BR>
 
 
 root@c8-h1:~# patronictl list<BR>
-<block>+--------+------------+---------+---------+----+-----------+</block><BR>
-<block>| Member | Host       | Role    | State   | TL | Lag in MB |</block><BR>
-<block>+ Cluster: c8-cls (7087222557044476438) --+----+-----------+</block><BR>
-<block>| c8-h1  | c8-h1:5434 | Replica | running |  5 |         0 |</block><BR>
-<block>| c8-h2  | c8-h2:5434 | Leader  | running |  5 |           |</block><BR>
-<block>| c8-h3  | c8-h3:5434 | Replica | running |  5 |         0 |</block><BR>
-<block>+--------+------------+---------+---------+----+-----------+</block>
+<code>+--------+------------+---------+---------+----+-----------+</code><BR>
+<code>| Member | Host       | Role    | State   | TL | Lag in MB |</code><BR>
+<code>+ Cluster: c8-cls (7087222557044476438) --+----+-----------+</code><BR>
+<code>| c8-h1  | c8-h1:5434 | Replica | running |  5 |         0 |</code><BR>
+<code>| c8-h2  | c8-h2:5434 | Leader  | running |  5 |           |</code><BR>
+<code>| c8-h3  | c8-h3:5434 | Replica | running |  5 |         0 |</code><BR>
+<code>+--------+------------+---------+---------+----+-----------+</code>
 
 root@c8-h1:~# PGPASSWORD=secret psql -h c8-cls -p 5434 -U foo -d postgres -X -c "SELECT application_name,client_addr,usename,state,sync_state,sync_priority,write_lag,flush_lag,replay_lag FROM pg_stat_replication;"
  application_name |  client_addr   |  usename   |   state   | sync_state | sync_priority |    write_lag    |    flush_lag    |   replay_lag    
