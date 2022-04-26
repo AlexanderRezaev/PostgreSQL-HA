@@ -189,14 +189,14 @@ root@c8-h1:~# patronictl list
 | c8-h2  | c8-h2:5434 | Replica | running |  6 |         0 |
 | c8-h3  | c8-h3:5434 | Leader  | running |  6 |           |
 +--------+------------+---------+---------+----+-----------+
-</html>
+<text>
 root@c8-h1:~# PGPASSWORD=secret psql -h c8-cls -p 5434 -U foo -d postgres -X -c "SELECT application_name,client_addr,usename,state,sync_state,sync_priority,write_lag,flush_lag,replay_lag FROM pg_stat_replication;"
  application_name |  client_addr   |  usename   |   state   | sync_state | sync_priority |    write_lag    |    flush_lag    |   replay_lag    
 ------------------+----------------+------------+-----------+------------+---------------+-----------------+-----------------+-----------------
  c8-h2            | 172.27.172.145 | clsreplica | streaming | quorum     |             1 | 00:00:00.000587 | 00:00:00.00243  | 00:00:00.002434
  c8-h1            | 172.27.172.144 | clsreplica | streaming | quorum     |             1 | 00:00:00.00243  | 00:00:00.002436 | 00:00:00.002436
 (2 rows)
-
+</text>
 
 # Прямое подключение к кластеру PG
 root@c8-h1:~# PGPASSWORD=secret psql -xtA -h c8-cls -p 5434 -U foo -d pgedb -c 'select hostname();' # postgres
