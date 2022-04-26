@@ -30,129 +30,301 @@
   tags: [ipsec_install]
 
 - name: Install the latest version of libreswan ipsec
-  dnf:
+  package:
     name: libreswan
-    state: latest
-  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'Rocky' or ansible_distribution == 'RED'
+    state: present
+  register: libreswan_rc
+  ignore_errors: yes
   tags: [ipsec_install]
 
-- name: Install the latest version of libreswan ipsec
-  apt:
-    name: libreswan
-    state: latest
-  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
-  tags: [ipsec_install]
-
-- name: Check if IPSec is initialized on RedHat.
-  stat:
-    path: "/etc/ipsec.d/cert9.db"
-  register: ipsec_init_c
-  when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux'
-  tags: [ipsec_install]
-
-- name: Check if IPSec is initialized on RED.
-  stat:
-    path: "/etc/ipsec.d/cert9.db"
-  register: ipsec_init_c
-  when: ansible_distribution == 'Rocky' or ansible_distribution == 'RED'
-  tags: [ipsec_install]
-
-- name: Check if IPSec is initialized on Debian.
-  stat:
-    path: "/var/lib/ipsec/nss/cert9.db"
-  register: ipsec_init_u
-  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
-  tags: [ipsec_install]
-
-#- name: rm /etc/ipsec.d/*.db
-#  shell: rm -rf /etc/ipsec.d/*
-#  args:
-#    warn: no
-#  when: not ipsec_init_c.stat.exists
+#- debug: msg="{{ libreswan_rc.failed }}"
 #  tags: [ipsec_install]
 
-- name: ipsec initnss on RedHat
-  shell: ipsec initnss --nssdir /etc/ipsec.d
-  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux') and not ipsec_init_c.stat.exists
+- name: Install the latest version of strongswan ipsec
+  package:
+    name: strongswan
+    state: present
+  register: strongswan_rc
+  when: libreswan_rc.failed == true
   tags: [ipsec_install]
 
-- name: ipsec initnss on RED
-  shell: ipsec initnss --nssdir /etc/ipsec.d
-  when: (ansible_distribution == 'Rocky' or ansible_distribution == 'RED') and not ipsec_init_c.stat.exists
-  tags: [ipsec_install]
+#- debug: msg="{{ strongswan_rc.failed }}"
+#  tags: [ipsec_install]
 
-- name: ipsec initnss
-  shell: ipsec initnss --nssdir /var/lib/ipsec/nss
-  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and not ipsec_init_u.stat.exists
-  tags: [ipsec_install]
+- name: config libreswan
+  block:
 
-- name: Check if IPSec hostkey is initialized.
-  stat:
-    path: "/etc/ipsec.d/hostkey.secrets"
-  register: ipsec_hostkey
-  tags: [ipsec_install]
+  - name: Check if IPSec is initialized on RedHat.
+    stat:
+      path: "/etc/ipsec.d/cert9.db"
+    register: ipsec_init_c
+    when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux'
+    tags: [ipsec_install]
 
-- name: ipsec newhostkey on RedHat
-  shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
-  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux') and not ipsec_hostkey.stat.exists
-  tags: [ipsec_install]
+  - name: Check if IPSec is initialized on RED.
+    stat:
+      path: "/etc/ipsec.d/cert9.db"
+    register: ipsec_init_c
+    when: ansible_distribution == 'Rocky' or ansible_distribution == 'RED'
+    tags: [ipsec_install]
 
-- name: ipsec newhostkey on RED
-  shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
-  when: (ansible_distribution == 'Rocky' or ansible_distribution == 'RED') and not ipsec_hostkey.stat.exists
-  tags: [ipsec_install]
+  - name: Check if IPSec is initialized on Debian.
+    stat:
+      path: "/var/lib/ipsec/nss/cert9.db"
+    register: ipsec_init_u
+    when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+    tags: [ipsec_install]
 
-- name: ipsec newhostkey on Debian
-  shell: ipsec newhostkey --nssdir /var/lib/ipsec/nss --output /etc/ipsec.d/hostkey.secrets
-  when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and not ipsec_hostkey.stat.exists 
-  tags: [ipsec_install]
+#  - name: rm /etc/ipsec.d/*.db
+#    shell: rm -rf /etc/ipsec.d/*
+#    args:
+#      warn: no
+#    when: not ipsec_init_c.stat.exists
+#    tags: [ipsec_install]
 
-- name: ipsec left hostkey
-  shell: ipsec showhostkey --left --ckaid $(ipsec showhostkey --list | grep '< 1>' | awk '{ print $7 }')
-  register: ipsec_left_hostkey
-  tags: [ipsec_install]
+  - name: ipsec initnss on RedHat
+    shell: ipsec initnss --nssdir /etc/ipsec.d
+    when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux') and not ipsec_init_c.stat.exists
+    tags: [ipsec_install]
 
-- name: ipsec right hostkey
-  shell: ipsec showhostkey --right --ckaid $(ipsec showhostkey --list | grep '< 1>' | awk '{ print $7 }')
-  register: ipsec_right_hostkey
-  tags: [ipsec_install]
+  - name: ipsec initnss on RED
+    shell: ipsec initnss --nssdir /etc/ipsec.d
+    when: (ansible_distribution == 'Rocky' or ansible_distribution == 'RED') and not ipsec_init_c.stat.exists
+    tags: [ipsec_install]
 
-- name: template config
-  vars:
-    - conname: "conn_{{ hostvars[inventory_hostname].ansible_set_ip }}_{{ hostvars[item].ansible_set_ip }}"
-    - ipsname_item: "{{ hostvars[item].ansible_set_fqdn }}"
-    - ipsip_item: "{{ hostvars[item].ansible_set_ip }}"
-    - ipsleftid_item: "{{ hostvars[item].ipsec_left_hostkey.stdout }}"
-    - ipsrightid_item: "{{ hostvars[item].ipsec_right_hostkey.stdout }}"
-    - ipsname_inv: "{{ hostvars[inventory_hostname].ansible_set_fqdn }}"
-    - ipsip_inv: "{{ hostvars[inventory_hostname].ansible_set_ip }}"
-    - ipsleftid_inv: "{{ hostvars[inventory_hostname].ipsec_left_hostkey.stdout }}"
-    - ipsrightid_inv: "{{ hostvars[inventory_hostname].ipsec_right_hostkey.stdout }}"
-  template:
-    src: connect.j2
-    dest: /etc/ipsec.d/{{ conname }}.conf
-    owner: root
-    group: root
-    mode: 0600
-  when: item != inventory_hostname
-  with_items: "{{ groups['ipsec_enable'] }}"
-  tags: [ipsec_install]
+  - name: ipsec initnss
+    shell: ipsec initnss --nssdir /var/lib/ipsec/nss
+    when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and not ipsec_init_u.stat.exists
+    tags: [ipsec_install]
 
-- name: daemon reload
-  command: /usr/bin/systemctl daemon-reload
-  tags: [ipsec_install]
+  - name: Check if IPSec hostkey is initialized.
+    stat:
+      path: "/etc/ipsec.d/hostkey.secrets"
+    register: ipsec_hostkey
+    tags: [ipsec_install]
 
-- name: ipsec service restarted
-  service: name=ipsec state=restarted enabled=yes
-  tags: [ipsec_install]
+  - name: ipsec newhostkey on RedHat
+    shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
+    when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux') and not ipsec_hostkey.stat.exists
+    tags: [ipsec_install]
 
-- name: list hostkeys
-  debug: msg="ipsec showhostkey --list"
-  tags: [ipsec_install]
+  - name: ipsec newhostkey on RED
+    shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
+    when: (ansible_distribution == 'Rocky' or ansible_distribution == 'RED') and not ipsec_hostkey.stat.exists
+    tags: [ipsec_install]
 
-- name: check status ipsec
-  debug: msg="ipsec whack --trafficstatus"
-  tags: [ipsec_install]
+  - name: ipsec newhostkey on Debian
+    shell: ipsec newhostkey --nssdir /var/lib/ipsec/nss --output /etc/ipsec.d/hostkey.secrets
+    when: (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and not ipsec_hostkey.stat.exists 
+    tags: [ipsec_install]
+
+  - name: ipsec left hostkey
+    shell: ipsec showhostkey --left --ckaid $(ipsec showhostkey --list | grep '< 1>' | awk '{ print $7 }')
+    register: ipsec_left_hostkey
+    tags: [ipsec_install]
+
+  - name: ipsec right hostkey
+    shell: ipsec showhostkey --right --ckaid $(ipsec showhostkey --list | grep '< 1>' | awk '{ print $7 }')
+    register: ipsec_right_hostkey
+    tags: [ipsec_install]
+
+  - name: template config
+    vars:
+      - conname: "conn_{{ hostvars[inventory_hostname].ansible_set_ip }}_{{ hostvars[item].ansible_set_ip }}"
+      - ipsname_item: "{{ hostvars[item].ansible_set_fqdn }}"
+      - ipsip_item: "{{ hostvars[item].ansible_set_ip }}"
+      - ipsleftid_item: "{{ hostvars[item].ipsec_left_hostkey.stdout }}"
+      - ipsrightid_item: "{{ hostvars[item].ipsec_right_hostkey.stdout }}"
+      - ipsname_inv: "{{ hostvars[inventory_hostname].ansible_set_fqdn }}"
+      - ipsip_inv: "{{ hostvars[inventory_hostname].ansible_set_ip }}"
+      - ipsleftid_inv: "{{ hostvars[inventory_hostname].ipsec_left_hostkey.stdout }}"
+      - ipsrightid_inv: "{{ hostvars[inventory_hostname].ipsec_right_hostkey.stdout }}"
+    template:
+      src: connect_libreswan.j2
+      dest: /etc/ipsec.d/{{ conname }}.conf
+      owner: root
+      group: root
+      mode: 0600
+    when: item != inventory_hostname
+    with_items: "{{ groups['ipsec_enable'] }}"
+    tags: [ipsec_install]
+
+  - name: daemon reload
+    command: /usr/bin/systemctl daemon-reload
+    tags: [ipsec_install]
+
+  - name: ipsec service restarted
+    service: name=ipsec state=restarted enabled=yes
+    tags: [ipsec_install]
+
+  - name: list hostkeys
+    debug: msg="ipsec showhostkey --list"
+    tags: [ipsec_install]
+
+  - name: check status ipsec
+    debug: msg="ipsec whack --trafficstatus"
+    tags: [ipsec_install]
+
+  when: libreswan_rc.failed == false
+
+- name: config strongswan
+  block:
+
+  - name: install tcpdump
+    package:
+      name: tcpdump
+      state: present
+    when: ansible_distribution == 'Astra Linux (Orel)'
+    tags: [ipsec_install]
+
+  - name: Generate password
+    shell: base64 < /dev/urandom | head -c24
+    register: ipsec_password
+    run_once: true
+    tags: [ipsec_install]
+
+  - debug: var=ipsec_password.stdout
+    tags: [ipsec_install]
+
+  - name: config altlinux
+    block:
+
+    - name: set PSK
+      lineinfile:
+        path: /etc/strongswan/ipsec.secrets
+        line: ': PSK "{{ ipsec_password.stdout }}"'
+        regexp: '^: PSK'
+        insertafter: '^#: PSK'
+      tags: [ipsec_install]
+
+    - name: "Ensure /etc/strongswan/ipsec.conf contains 'include'"
+      lineinfile:
+        name: /etc/strongswan/ipsec.conf
+        line: "include"
+        state: present
+      check_mode: yes
+      register: conf
+      tags: [ipsec_install]
+
+    - name: Insert/Update "Match User" configuration block in /etc/ssh/sshd_config
+      blockinfile:
+        path: /etc/strongswan/ipsec.conf
+        backup: yes
+        block: |
+          conn %default
+                auto=route
+                keyexchange=ikev1   # psk worked on ikev1 only
+                ike=3des-sha1-modp1024
+
+          include /etc/strongswan/ipsec.d/*.conf
+      when: (conf is changed) or (conf is failed)
+      tags: [ipsec_install]
+
+    - name: template config
+      vars:
+        - conname: "conn_{{ hostvars[inventory_hostname].ansible_set_ip }}_{{ hostvars[item].ansible_set_ip }}"
+        - ipsip_item: "{{ hostvars[item].ansible_set_ip }}"
+      template:
+        src: connect_strongswan.j2
+        dest: /etc/strongswan/ipsec.d/{{ conname }}.conf
+        owner: root
+        group: root
+        mode: 0644
+      when: item != inventory_hostname
+      with_items: "{{ groups['ipsec_enable'] }}"
+      tags: [ipsec_install]
+
+    when: ansible_distribution == 'ALT Server'
+
+  - name: config altlinux
+    block:
+
+    - name: set PSK
+      lineinfile:
+        path: /etc/ipsec.secrets
+        line: ': PSK "{{ ipsec_password.stdout }}"'
+        regexp: '^: PSK'
+        insertafter: '^#: PSK'
+      tags: [ipsec_install]
+
+    - name: comment ipsec.conf.inc
+      lineinfile:
+        path: /etc/ipsec.conf
+        line: '#include /var/lib/strongswan/ipsec.conf.inc'
+        regexp: '^include /var/lib/strongswan/ipsec.conf.inc'
+        insertafter: '^#include /var/lib/strongswan/ipsec.conf.inc'
+      tags: [ipsec_install]
+
+    - name: comment ipsec.secrets.inc
+      lineinfile:
+        path: /etc/ipsec.secrets
+        line: '#include /var/lib/strongswan/ipsec.secrets.inc'
+        regexp: '^include /var/lib/strongswan/ipsec.secrets.inc'
+        insertafter: '^#include /var/lib/strongswan/ipsec.secrets.inc'
+      tags: [ipsec_install]
+
+    - name: "Ensure /etc/ipsec.conf contains 'include'"
+      lineinfile:
+        name: /etc/ipsec.conf
+        line: "include"
+        state: present
+      check_mode: yes
+      register: conf
+      tags: [ipsec_install]
+
+    - name: Insert/Update "Match User" configuration block in /etc/ssh/sshd_config
+      blockinfile:
+        path: /etc/ipsec.conf
+        backup: yes
+        block: |
+          conn %default
+                auto=route
+                keyexchange=ikev1   # psk worked on ikev1 only
+                ike=3des-sha1-modp1024
+
+          include /etc/ipsec.d/*.conf
+      when: (conf is changed) or (conf is failed)
+      tags: [ipsec_install]
+
+    - name: template config
+      vars:
+        - conname: "conn_{{ hostvars[inventory_hostname].ansible_set_ip }}_{{ hostvars[item].ansible_set_ip }}"
+        - ipsip_item: "{{ hostvars[item].ansible_set_ip }}"
+      template:
+        src: connect_strongswan.j2
+        dest: /etc/ipsec.d/{{ conname }}.conf
+        owner: root
+        group: root
+        mode: 0644
+      when: item != inventory_hostname
+      with_items: "{{ groups['ipsec_enable'] }}"
+      tags: [ipsec_install]
+
+    when: ansible_distribution == 'Astra Linux (Orel)'
+
+  - name: daemon reload
+    command: /usr/bin/systemctl daemon-reload
+    when: ansible_distribution != 'Astra Linux (Orel)'
+    tags: [ipsec_install]
+
+  - name: daemon reload
+    command: /bin/systemctl daemon-reload
+    when: ansible_distribution == 'Astra Linux (Orel)'
+    tags: [ipsec_install]
+
+  - name: ipsec service restarted
+    service: name=ipsec state=restarted enabled=yes
+    tags: [ipsec_install]
+
+  - name: check status ipsec
+    vars:
+      - ipsname_item: "{{ hostvars[item].ansible_set_fqdn }}"
+    debug: msg="tcpdump -c 20 host {{ ipsname_item }}"
+    when: item != inventory_hostname
+    with_items: "{{ groups['ipsec_enable'] }}"
+    tags: [ipsec_install]
+
+  when: strongswan_rc.failed == false
 
 - name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
   shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
