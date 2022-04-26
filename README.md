@@ -113,45 +113,46 @@
 (https://github.com/AlexanderRezaev/PostgreSQL-HA/tree/master/ansible-pg-ha)<BR>
 получаем PostgreSQL кластер:
 
-root@c8-h1:~# patronictl --help<BR>
+<pre><code>
+root@c8-h1:~# patronictl --help
 Usage: patronictl [OPTIONS] COMMAND [ARGS]...
 
-Options:<BR>
-  -c, --config-file TEXT  # Configuration file<BR>
-  -d, --dcs TEXT          # Use this DCS<BR>
-  -k, --insecure          # Allow connections to SSL sites without certs<BR>
-  --help                  # Show this message and exit.
+Options:
+  -c, --config-file TEXT  Configuration file
+  -d, --dcs TEXT          Use this DCS
+  -k, --insecure          Allow connections to SSL sites without certs
+  --help                  Show this message and exit.
 
-Commands:<BR>
-  configure    # Create configuration file<BR>
-  dsn          # Generate a dsn for the provided member, defaults to a dsn...<BR>
-  edit-config  # Edit cluster configuration<BR>
-  failover     # Failover to a replica<BR>
-  flush        # Discard scheduled events<BR>
-  history      # Show the history of failovers/switchovers<BR>
-  list         # List the Patroni members for a given Patroni<BR>
-  pause        # Disable auto failover<BR>
-  query        # Query a Patroni PostgreSQL member<BR>
-  reinit       # Reinitialize cluster member<BR>
-  reload       # Reload cluster member configuration<BR>
-  remove       # Remove cluster from DCS<BR>
-  restart      # Restart cluster member<BR>
-  resume       # Resume auto failover<BR>
-  scaffold     # Create a structure for the cluster in DCS<BR>
-  show-config  # Show cluster configuration<BR>
-  switchover   # Switchover to a replica<BR>
-  topology     # Prints ASCII topology for given cluster<BR>
-  version      # Output version of patronictl command or a running Patroni...
+Commands:
+  configure    Create configuration file
+  dsn          Generate a dsn for the provided member, defaults to a dsn...
+  edit-config  Edit cluster configuration
+  failover     Failover to a replica
+  flush        Discard scheduled events
+  history      Show the history of failovers/switchovers
+  list         List the Patroni members for a given Patroni
+  pause        Disable auto failover
+  query        Query a Patroni PostgreSQL member
+  reinit       Reinitialize cluster member
+  reload       Reload cluster member configuration
+  remove       Remove cluster from DCS
+  restart      Restart cluster member
+  resume       Resume auto failover
+  scaffold     Create a structure for the cluster in DCS
+  show-config  Show cluster configuration
+  switchover   Switchover to a replica
+  topology     Prints ASCII topology for given cluster
+  version      Output version of patronictl command or a running Patroni...
 
 
-root@c8-h1:~# patronictl list<BR>
-<code>+--------+------------+---------+---------+----+-----------+</code><BR>
-<code>| Member | Host       | Role    | State   | TL | Lag in MB |</code><BR>
-<code>+ Cluster: c8-cls (7087222557044476438) --+----+-----------+</code><BR>
-<code>| c8-h1  | c8-h1:5434 | Replica | running |  5 |         0 |</code><BR>
-<code>| c8-h2  | c8-h2:5434 | Leader  | running |  5 |           |</code><BR>
-<code>| c8-h3  | c8-h3:5434 | Replica | running |  5 |         0 |</code><BR>
-<code>+--------+------------+---------+---------+----+-----------+</code>
+root@c8-h1:~# patronictl list
++--------+------------+---------+---------+----+-----------+
+| Member | Host       | Role    | State   | TL | Lag in MB |
++ Cluster: c8-cls (7087222557044476438) --+----+-----------+
+| c8-h1  | c8-h1:5434 | Replica | running |  5 |         0 |
+| c8-h2  | c8-h2:5434 | Leader  | running |  5 |           |
+| c8-h3  | c8-h3:5434 | Replica | running |  5 |         0 |
++--------+------------+---------+---------+----+-----------+
 
 root@c8-h1:~# PGPASSWORD=secret psql -h c8-cls -p 5434 -U foo -d postgres -X -c "SELECT application_name,client_addr,usename,state,sync_state,sync_priority,write_lag,flush_lag,replay_lag FROM pg_stat_replication;"
  application_name |  client_addr   |  usename   |   state   | sync_state | sync_priority |    write_lag    |    flush_lag    |   replay_lag    
@@ -189,14 +190,13 @@ root@c8-h1:~# patronictl list
 | c8-h2  | c8-h2:5434 | Replica | running |  6 |         0 |
 | c8-h3  | c8-h3:5434 | Leader  | running |  6 |           |
 +--------+------------+---------+---------+----+-----------+
-<pre><code>
+
 root@c8-h1:~# PGPASSWORD=secret psql -h c8-cls -p 5434 -U foo -d postgres -X -c "SELECT application_name,client_addr,usename,state,sync_state,sync_priority,write_lag,flush_lag,replay_lag FROM pg_stat_replication;"
  application_name |  client_addr   |  usename   |   state   | sync_state | sync_priority |    write_lag    |    flush_lag    |   replay_lag    
 ------------------+----------------+------------+-----------+------------+---------------+-----------------+-----------------+-----------------
  c8-h2            | 172.27.172.145 | clsreplica | streaming | quorum     |             1 | 00:00:00.000587 | 00:00:00.00243  | 00:00:00.002434
  c8-h1            | 172.27.172.144 | clsreplica | streaming | quorum     |             1 | 00:00:00.00243  | 00:00:00.002436 | 00:00:00.002436
 (2 rows)
-</code></pre>
 
 # Прямое подключение к кластеру PG
 root@c8-h1:~# PGPASSWORD=secret psql -xtA -h c8-cls -p 5434 -U foo -d pgedb -c 'select hostname();' # postgres
@@ -224,3 +224,4 @@ hostname|c8-h1.lab.local
 root@c8-h1:~# ipsec whack --trafficstatus
 006 #3: "conn_172.27.172.144_172.27.172.145", type=ESP, add_time=1650959754, inBytes=236435391, outBytes=3667199, id='@c8-h2.lab.local'
 006 #4: "conn_172.27.172.144_172.27.172.146", type=ESP, add_time=1650959756, inBytes=944431, outBytes=586282, id='@c8-h3.lab.local'
+</code></pre>
