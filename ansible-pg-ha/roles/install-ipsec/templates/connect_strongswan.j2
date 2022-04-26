@@ -1,0 +1,6 @@
+# ipsec.conf - strongSwan IPsec configuration file
+
+conn {{ conname }}
+    type=tunnel
+    authby=psk
+    right={{ ipsip_item }}
