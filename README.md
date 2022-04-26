@@ -109,7 +109,7 @@
 
 ---
 
-В результате выполнения ansible скриптов () получаем PostgreSQL кластер
+В результате выполнения ansible скриптов (https://github.com/AlexanderRezaev/PostgreSQL-HA/tree/master/ansible-pg-ha) получаем PostgreSQL кластер
 
 root@c8-h1:~# patronictl --help
 Usage: patronictl [OPTIONS] COMMAND [ARGS]...
