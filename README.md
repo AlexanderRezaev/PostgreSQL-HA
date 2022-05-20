@@ -207,7 +207,8 @@ hostname|c8-h3.lab.local
 root@c8-h1:~# PGPASSWORD=secret psql -xtA -h c8-cls -p 6432 -U foo -d pgedb -c 'select hostname();' | sed -n '1p' # pgbouncer
 hostname|c8-h3.lab.local
 
-# Подключение через pgpool. Настроена балансировка нагрузки read-only. Функция hostname() помечена как read-only.
+# Подключение через pgpool.
+# Настроена балансировка нагрузки read-only. Функция hostname() помечена как read-only.
 root@c8-h1:~# PGPASSWORD=secret psql -xtA -h c8-cls -p 9999 -U foo -d pgedb -c 'select hostname();' | sed -n '1p' # pgpool
 hostname|c8-h3.lab.local
 
