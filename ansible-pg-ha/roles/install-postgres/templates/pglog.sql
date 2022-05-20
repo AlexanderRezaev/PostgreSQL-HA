@@ -353,7 +353,7 @@ BEGIN
 	IF isStandby = false THEN
 
 		sqlqueryA := 'ALTER TABLE ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.pglog DETACH PARTITION ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.' || quote_ident(rtrim(ltrim(tbl,'"'),'"')) || ';';
-#		RAISE WARNING 'log_dt[%], DETACH[%]', now() AT TIME ZONE tzlogs, sqlqueryA USING ERRCODE = '01L06';
+--		RAISE WARNING 'log_dt[%], DETACH[%]', now() AT TIME ZONE tzlogs, sqlqueryA USING ERRCODE = '01L06';
 		BEGIN
 			EXECUTE sqlqueryA;
 		EXCEPTION
@@ -379,7 +379,7 @@ BEGIN
 		END;
 
 		sqlqueryB := 'ALTER TABLE ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.pglog ATTACH PARTITION ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.' || quote_ident(rtrim(ltrim(tbl,'"'),'"')) || ' FOR VALUES FROM (''' || date_trunc('hour',COALESCE(dt,dtf))::timestamptz || ''') TO (''' || date_trunc('hour',COALESCE(dt,dtf)::timestamptz+interval'1 hour') || ''');';
-		--RAISE WARNING 'log_dt[%], ATTACH[%]', now() AT TIME ZONE tzlogs, sqlqueryB USING ERRCODE = '01L07';
+--		RAISE WARNING 'log_dt[%], ATTACH[%]', now() AT TIME ZONE tzlogs, sqlqueryB USING ERRCODE = '01L07';
 		BEGIN
 			EXECUTE sqlqueryB;
 		EXCEPTION
