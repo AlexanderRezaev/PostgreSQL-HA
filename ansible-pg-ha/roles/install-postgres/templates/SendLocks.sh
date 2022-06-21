@@ -71,20 +71,10 @@ WITH cte as ( \
 
 if [[ "${CNT}" -ne "0" ]]
 then
-
-  echo -e "${MSG}" | mutt \
-    -e 'set content_type = text/html' \
-    -e 'set from = "alerts@lab.local"' \
-    -s "ALERT: Locks on $(hostname)" ${EMAIL} -c ${EMAILCC} -b ${EMAILBCC}
-
-# MAILSMTP='smtp.mail.ru:465'
-#  echo -e "${MSG}" | mutt -d3 -e "set content_type=text/html" -e "set send_charset=utf-8" -e "set allow_8bit=yes" -e "set use_ipv6=no" \
-#    -e "set move=no" -e "set copy=no" \
-#    -e "set from=\"${MAILLOGIN}\"" -e "set realname=\"${MAILFROM}\"" \
-#    -e "set smtp_authenticators=\"login\"" -e "set smtp_url=smtps://\"${MAILLOGIN}\"@\"${MAILSMTP}\"" -e "set smtp_pass=\"${MAILPWD}\"" \
-#    -e "set ssl_starttls=yes" -e "set ssl_force_tls=yes" -e "set ssl_verify_dates=no" -e "set ssl_verify_host=no" \
-#    -s "ALERT: Locks on $(hostname)" ${EMAIL} 2>&1
-
+        echo -e "${MSG}" | mutt \
+                -e 'set content_type = text/html' \
+                -e 'set from = "alerts@lab.local"' \
+                -s "ALERT: Locks on $(hostname)" ${EMAIL} -c ${EMAILCC} -b ${EMAILBCC}
 #else
 #       echo "nothing"
 fi

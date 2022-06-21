@@ -13,6 +13,8 @@
       DCS: zookeeper    # may be : etcd, etcd3, consul, zookeeper, exhibitor, kubernetes, raft
 #      DCS: etcd3        # may be : etcd, etcd3, consul, zookeeper, exhibitor, kubernetes, raft
 
+      dcs_on_mounted_disk: false
+
       zookeeper_version: '3.6.3'
       zookeeper_src: "/root/packages/zookeeper/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz"
       zookeeper_service: zookeeper
@@ -70,7 +72,7 @@
         - pgpool-II-pg14-extensions-4.3.0-1.rhel8.x86_64.rpm
 
       postgresql_addendum_common:
-#        - pgbouncer-1.16.1-2.rhel8.x86_64.rpm  
+#        - pgbouncer-1.16.1-10.rhel8.x86_64.rpm  
 # next line for postgresql_version >= 14
         - pgpool-II-4.3.0-1.rhel8.x86_64.rpm
         - pgpool-II-pcp-4.3.0-1.rhel8.x86_64.rpm
@@ -132,7 +134,7 @@
 #         - patroni-etcd-2.1.2-1.rhel8.x86_64.rpm
 
       pg_profile_package:
-        - pg_profile--0.3.6.tar.gz
+        - pg_profile--0.3.4.tar.gz
 
     roles:
 

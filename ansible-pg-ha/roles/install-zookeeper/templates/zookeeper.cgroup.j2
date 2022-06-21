@@ -18,9 +18,6 @@ group zookeeper {
         memory.limit_in_bytes = 1G;
         memory.memsw.limit_in_bytes = 1G;
     }
-#    blkio {
-#           blkio.weight = 1000;
-#    }
     # limit CPU time to 0.25 seconds out of each second
     cpu {
         cpu.cfs_period_us = 1000000;
@@ -31,4 +28,8 @@ group zookeeper {
 #       cpuset.cpus = 0-1;
 #        cpuset.mems = 0;
 #    }
+# io - set /io.cost.qos for disk (cgroups v2)
+# lsblk -o +FSTYPE,UUID,PARTUUID,PHY-SEC,LOG-SEC,MODEL
+# echo "253:0 enable=1 ctrl=auto rpct=95.00 rlat=75000 wpct=95.00 wlat=150000 min=50.00 max=150.0" > /sys/fs/cgroup/io.cost.qos 
+# cgset -r io.cost.qos="253:0 enable=1 ctrl=auto rpct=95.00 rlat=75000 wpct=95.00 wlat=150000 min=50.00 max=150.0" /
 }

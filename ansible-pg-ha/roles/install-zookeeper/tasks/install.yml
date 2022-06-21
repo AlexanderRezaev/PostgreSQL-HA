@@ -15,6 +15,16 @@
 
 - debug: msg="{{ ansible_distribution }}"
 
+- name: "Set variables"
+  set_fact:
+    zookeeper_data: "/var/lib/{{ zookeeper_service }}"
+  when: dcs_on_mounted_disk == false
+
+- name: "Set variables"
+  set_fact:
+    zookeeper_data: "/dcs/zookeeper/{{ zookeeper_service }}"
+  when: dcs_on_mounted_disk == true
+
 - name: install chrony
   package:
     name: chrony
@@ -28,7 +38,13 @@
   package:
     name: nmap-ncat
     state: present
-  when: ansible_distribution != 'Debian'
+  when: ansible_distribution != 'Debian' and (ansible_distribution != 'ALT Server' and ansible_distribution != 'Altlinux')
+
+- name: install nmap
+  package:
+    name: nmap
+    state: present
+  when: ansible_distribution == 'Debian' or (ansible_distribution == 'ALT Server' or ansible_distribution == 'Altlinux')
 
 - name: install unzip
   package:
@@ -46,24 +62,44 @@
   yum:
     name: epel-release
     state: latest
-  when: ansible_distribution != 'Debian' and ansible_distribution != 'RedHat'
+  when: ansible_distribution == 'OracleLinux' or ansible_distribution == 'CentOS' or ansible_distribution == 'Rocky'
 
 - name: install ioping
   package:
     name: ioping
     state: present
+  when: ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux' or ansible_distribution == 'CentOS' or ansible_distribution == 'Rocky'
+
+- name: install ioping
+  package:
+    name: ioping
+    state: present
+  when: ansible_distribution == 'Debian'
 
 - name: install JAVA 8 on Ubuntu
   package:
-    name: openjdk-8-jdk	              # Ubuntu 20
+    name: openjdk-8-jdk	               # Ubuntu, Debian
     state: present
   when: ansible_os_family == 'Debian'
 
 - name: install JAVA 8 on CentOS
   package:
-    name: java-1.8.0-openjdk          # CentOS 8
+    name: java-1.8.0-openjdk           # RedHat, CentOS, Rocky, OracleLinux
     state: present
   when: ansible_os_family == 'RedHat'
+
+- name: install JAVA 8 on ALT Server
+  apt_rpm:
+    name: java-1.8.0-openjdk-headless
+    state: present
+    update_cache: yes
+  when: ansible_os_family == 'ALT Server' or ansible_os_family == 'Altlinux'
+
+- name: install JAVA 8 on RED OS
+  package:
+    name: java-1.8.0-openjdk           # RED OS
+    state: present
+  when: ansible_distribution == 'RED'
 
 - name: Ensure group "zookeeper" exists
   group:
@@ -76,6 +112,43 @@
     comment: zokeeper service
     group: zookeeper
     state: present
+
+- name: dcs on mounted disk
+  block:
+
+  - name: check disk dcs mounted /dcs
+    shell: mountpoint '/dcs'
+    register: check_mount
+    vars:
+      mntp: "/dcs is a mountpoint"
+#    failed_when: check_mount.stdout == mntp
+
+  - name: Create dir /dcs
+    file:
+      path: "/dcs"
+      state: directory
+      owner: zookeeper
+      group: zookeeper
+      mode: 0700
+#    ignore_errors: true
+
+  - name: mount disk dcs to /dcs
+    mount:
+      src: "{{ dcs_dev }}"
+      path: "/dcs"
+      fstype: ext4
+      state: mounted
+      opts: rw,noatime,async,barrier=0,data=writeback,commit=60
+
+  - name: set permission
+    file:
+      path: "/dcs"
+      state: directory
+      owner: zookeeper
+      group: zookeeper
+      mode: 0700
+
+  when: dcs_on_mounted_disk == true
 
 - name: online installation           
   block:
@@ -169,53 +242,6 @@
     group: root
     mode: o-rwx
 
-#- name: create dir archives
-#  file:
-#    path: "{{ zookeeper_archive_mount }}"
-#    state: directory
-#    owner: root
-#    group: root
-#    mode: o-rwx
-#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- name: unmount {{ zookeeper_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
-#  mount:
-#    src: "{{ zookeeper_archive_disk }}"
-#    path: "{{ zookeeper_archive_mount }}"
-#    state: unmounted
-#    fstab: /tmp/zktmp.fstab
-#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- include: archiving_disk_state_reset.yml
-#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- include: archiving_disk_state_import.yml
-#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- name: mount {{ zookeeper_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
-#  mount:
-#    src: "{{ zookeeper_archive_disk }}"
-#    path: "{{ zookeeper_archive_mount }}"
-#    fstype: xfs
-#    state: mounted
-#    fstab: /tmp/zktmp.fstab
-#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- name: unmount {{ zookeeper_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
-#  mount:
-#    src: "{{ zookeeper_archive_disk }}"
-#    path: "{{ zookeeper_archive_mount }}"
-#    state: unmounted
-#    fstab: /tmp/zktmp.fstab
-#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- include: archiving_disk_state_export.yml
-#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- name: template archiving
-#  template: src=zk_archiving.sh dest="{{ zookeeper_backup_home }}/{{ zookeeper_service }}/zk_archiving.sh" mode=0700
-#  when: zookeeper_archive_disk is defined and zookeeper_archive_mount is defined
-
 - name: Configure /etc/hosts. Comment on 127.0.1.1
   lineinfile:
     dest: "/etc/hosts"
@@ -303,6 +329,11 @@
 
 - name: config /usr/lib/systemd/system/{{ zookeeper_service }}.service
   template: src=zookeeper.service.j2 dest=/usr/lib/systemd/system/{{ zookeeper_service }}.service owner=root group=root mode=0600
+  when: (ansible_distribution != 'ALT Server' and ansible_distribution != 'Altlinux')
+
+- name: config /lib/systemd/system/{{ zookeeper_service }}.service
+  template: src=zookeeper.service.j2 dest=/lib/systemd/system/{{ zookeeper_service }}.service owner=root group=root mode=0600
+  when: (ansible_distribution == 'ALT Server' or ansible_distribution == 'Altlinux')
 
 #- name: zookeeper cgroup config
 #  template: src=zookeeper.cgroup.j2 dest=/etc/cgconfig.d/{{ zookeeper_service }}.conf
@@ -475,7 +506,7 @@
 - name: add alias zoo to .bashrc
   lineinfile:
     path: ~/.bashrc
-    line: alias zoo='srvs=$(cat {{ zookeeper_cfg }}/zoo.cfg | grep -P "server.*:" | sed "s/^.*=//" | sed "s/:.*$//"); all=$(for srv in ${srvs}; do zkmode=$(echo srvr | nc ${srv} {{ zookeeper_clientPort }} 2>/dev/null | grep Mode | sed "s/Mode..//"); echo -e "${srv} ${zkmode}"; if [ "${zkmode}" == "leader" ]; then flwrs=$(echo mntr | nc ${srv} {{ zookeeper_clientPort }} | grep --colour=never followers); echo -e "${flwrs}"; fi; done;); echo -e "${all}" | sort | grep "leader\|$"'
+    line: alias zoo='srvs=$(cat {{ zookeeper_cfg }}/zoo.cfg | grep -P "server.*:" | sed "s/^.*=//" | sed "s/:.*$//"); all=$(for srv in ${srvs}; do zkmode=$(echo srvr | timeout 3 nc ${srv} {{ zookeeper_clientPort }} 2>/dev/null | grep Mode | sed "s/Mode..//"); echo -e "${srv} ${zkmode}"; if [ "${zkmode}" == "leader" ]; then flwrs=$(echo mntr | timeout 3 nc ${srv} {{ zookeeper_clientPort }} | grep --colour=never followers); echo -e "${flwrs}"; fi; done;); echo -e "${all}" | sort | grep "leader\|$"'
     state: present
     create: yes
 

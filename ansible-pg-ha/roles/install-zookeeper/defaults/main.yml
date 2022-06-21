@@ -1,11 +1,20 @@
+zookeeper_service: zookeeper
+
 zokeeper_bin: "/opt/zookeeper"
 zookeeper_cfg: "/etc/{{ zookeeper_service }}"
 zookeeper_log: "/var/log/{{ zookeeper_service }}"
-zookeeper_data:   "/var/lib/{{ zookeeper_service }}"
+
+dcs_dev: "/dev/dcs_vg/dcs"
+
+# dcs_on_mounted_disk: true 
+#zookeeper_data:   "/dcs/zookeeper/{{ zookeeper_service }}"
+
+# dcs_on_mounted_disk: false
+#zookeeper_data:   "/var/lib/{{ zookeeper_service }}"
+
 zookeeper_dat:    "{{ zookeeper_data }}/data"
 zookeeper_datlog: "{{ zookeeper_data }}/log"
 
-zookeeper_service: zookeeper
 zookeeper_clientPort: '2181'
 zookeeper_adminPort: '8081'
 # curl 'http://127.0.0.1:8081/commands'

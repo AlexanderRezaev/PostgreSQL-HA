@@ -161,6 +161,10 @@
   when: installation == 'online'
 
 
+- name: remove 'not founded' rpm
+  shell: find /tmp/pg -type f -size -200c -exec rm {} \;
+  tags: [postgres_install]
+
 - name: Install PostgreSQL packages from a local rpm files
   dnf:
     name: "/tmp/pg/{{ item }}"

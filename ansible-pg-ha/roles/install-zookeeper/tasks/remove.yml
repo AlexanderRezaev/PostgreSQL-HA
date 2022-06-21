@@ -8,6 +8,18 @@
   shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
   tags: [zookeeper_remove]
 
+- name: "Set variables"
+  set_fact:
+    zookeeper_data: "/var/lib/{{ zookeeper_service }}"
+  when: dcs_on_mounted_disk == false
+  tags: [zookeeper_remove]
+
+- name: "Set variables"
+  set_fact:
+    zookeeper_data: "/dcs/zookeeper/{{ zookeeper_service }}"
+  when: dcs_on_mounted_disk == true
+  tags: [zookeeper_remove]
+
 - name: zookeeper service stop
   service: name={{ zookeeper_service }} state=stopped enabled=no
   tags: [zookeeper_remove]

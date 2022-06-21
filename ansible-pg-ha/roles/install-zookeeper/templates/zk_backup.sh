@@ -7,7 +7,7 @@ else
 pattern=$(date +'%Y%m%d_%H%M')
 fi
 
-zk_path="/var/lib/{{ zookeeper_service }}"
+zk_path="{{ zookeeper_data }}"
 zk_cfg="/etc/{{ zookeeper_service }}"
 zk_bkp="{{ zookeeper_backup_home }}/{{ zookeeper_service }}"
 zk_fz="/"

@@ -1,4 +1,3 @@
-```
 mkdir -p /root/packages/postgres/PG13
 cd /root/packages/postgres/PG13
 
@@ -29,7 +28,7 @@ wget https://download.postgresql.org/pub/repos/yum/common/redhat/rhel-8.5-x86_64
 wget https://download.postgresql.org/pub/repos/yum/14/redhat/rhel-8.5-x86_64/pgpool-II-pg14-extensions-4.3.0-1.rhel8.x86_64.rpm
 wget https://download.postgresql.org/pub/repos/yum/common/redhat/rhel-8.5-x86_64/pgbouncer-1.16.1-2.rhel8.x86_64.rpm
 
-#
+############################################################################################################################
 
 mkdir -p /root/packages/patroni/2.1.1
 cd /root/packages/patroni/2.1.1
@@ -62,27 +61,19 @@ wget https://download.postgresql.org/pub/repos/yum/common/redhat/rhel-8.5-x86_64
 wget https://download.postgresql.org/pub/repos/yum/common/redhat/rhel-8.5-x86_64/pgbouncer-1.16.1-2.rhel8.x86_64.rpm
 
 
-#OracleLinux
-#https://yum.oracle.com/repo/OracleLinux/OL8/developer/x86_64/index.html
+# OracleLinux
+# https://yum.oracle.com/repo/OracleLinux/OL8/developer/x86_64/index.html
 wget https://yum.oracle.com/repo/OracleLinux/OL8/developer/x86_64/getPackage/python3-certifi-2018.10.15-5.0.1.el8.noarch.rpm
 
-#
+############################################################################################################################
 
 wget https://github.com/zubkov-andrei/pg_profile/releases/download/0.3.4/pg_profile--0.3.4.tar.gz
-wget https://github.com/zubkov-andrei/pg_profile/releases/download/0.3.6/pg_profile--0.3.6.tar.gz
 
-#
+############################################################################################################################
 
 mkdir -p /root/packages/patroni/pip3/2.1.1
 cd /root/packages/patroni/pip3/2.1.1
 pip3 download --only-binary :none --retries 1 patroni[zookeeper,aws]==2.1.1
 pip3 download --only-binary :none --retries 1 patroni[etcd,aws]==2.1.1
 
-#
-
-mkdir -p /root/packages/patroni/pip3/2.1.2
-cd /root/packages/patroni/pip3/2.1.2
-pip3 download --only-binary :none --retries 1 patroni[zookeeper,aws]==2.1.2
-pip3 download --only-binary :none --retries 1 patroni[etcd,aws]==2.1.2
-
-```
+############################################################################################################################

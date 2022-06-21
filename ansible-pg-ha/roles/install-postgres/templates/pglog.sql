@@ -141,7 +141,7 @@ DROP FUNCTION public._crfile(text);
 
 GRANT SELECT ON TABLE public.pglog TO PUBLIC;
 
---------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 
 DROP FUNCTION IF EXISTS public.log_state();
@@ -191,9 +191,7 @@ declare
 	sqlquery1 text;
 	sqlquery2 text;
 	sqlquery3 text;
-declare tz text;
 BEGIN
-	SELECT setting::text INTO tz FROM pg_settings WHERE name in ( 'log_timezone' );
 	FOR r IN SELECT
 			  nmsp_parent.nspname::text AS parent_schema
 			, parent.relname::text AS parent_table
@@ -263,6 +261,7 @@ end
 $$ language plpgsql;
 
 
+
 DROP FUNCTION IF EXISTS public.log_switch();
 
 CREATE OR REPLACE FUNCTION public.log_switch()
@@ -277,16 +276,8 @@ $BODY$
 	
 	SELECT * FROM public.pglog WHERE log_time > '2020-03-05' ORDER BY log_time desc LIMIT 40;
 
-	SET SESSION TIME ZONE 'Europe/Moscow';
-	SELECT * FROM public.pglog ORDER BY log_time desc LIMIT 40;
-    
-	SET SESSION TIME ZONE 'Europe/Moscow';
-	SELECT log_time, process_id as pid, application_name, user_name as user, database_name, command_tag, error_severity as severity, sql_state_code, connection_from, 
-		substring(context from 1 for 50) as context, substring(message from 1 for 350) as message --, *
-	FROM public.pglog
-	WHERE current_timestamp - log_time <= interval '1 hour'
-	AND sql_state_code ilike '01L0%'
-	ORDER BY log_time DESC
+       	SET SESSION TIME ZONE 'Europe/Moscow';
+       	SELECT * FROM public.pglog ORDER BY log_time desc LIMIT 40;
 */
 declare partname text;
 declare tz text;
@@ -295,7 +286,7 @@ BEGIN
 	partname := 'postgresql-' || to_char(now() AT TIME ZONE tz,'Dy') || '-' || to_char(now() AT TIME ZONE tz,'HH24');
 	--RAISE WARNING 'partname[%]', partname;
 	RAISE WARNING 'Every hour counts! In order every file is not empty.' USING ERRCODE = '01L01';
-	PERFORM public.log_switch( 'public', partname, date_trunc('hour',now() AT TIME ZONE tz)::timestamptz AT TIME ZONE tz );
+	PERFORM public.log_switch( 'public', partname, date_trunc( 'hour',now() AT TIME ZONE tz) );
 	RETURN true;
 END;
 $BODY$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -320,23 +311,14 @@ $BODY$
 
 	select public.log_switch('public','postgresql-Wed-09',date_trunc('hour','2020-04-08 09:00'::timestamptz));
 
-	SET SESSION TIME ZONE 'Europe/Moscow';
-	SELECT * FROM public.pglog ORDER BY log_time desc LIMIT 40;
-    
-	SET SESSION TIME ZONE 'Europe/Moscow';
-	SELECT log_time, process_id as pid, application_name, user_name as user, database_name, command_tag, error_severity as severity, sql_state_code, connection_from, 
-		substring(context from 1 for 50) as context, substring(message from 1 for 350) as message --, *
-	FROM public.pglog
-	WHERE current_timestamp - log_time <= interval '1 hour'
-	AND sql_state_code ilike '01L0%'
-	ORDER BY log_time DESC
+       	SET SESSION TIME ZONE 'Europe/Moscow';
+       	SELECT * FROM public.pglog ORDER BY log_time desc LIMIT 40;
 */
 declare	sqlquery text;
 declare	sqlquery0 text;
 declare	sqlqueryA text;
 declare	sqlqueryB text;
 declare dt timestamptz;
-declare tz text;
 declare rc bool;
 declare isStandby bool;
 DECLARE
@@ -346,8 +328,6 @@ DECLARE
     v_hint    TEXT;
     v_context TEXT;
 BEGIN
-	SELECT setting::text INTO tz FROM pg_settings WHERE name in ( 'log_timezone' );
-
 	sqlquery := 'SELECT log_time FROM ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.' || quote_ident(rtrim(ltrim(tbl,'"'),'"')) || ' ORDER BY log_time LIMIT 1';
 	BEGIN
 		EXECUTE sqlquery INTO dt;
@@ -361,7 +341,7 @@ BEGIN
 	IF isStandby = false THEN
 
 		sqlqueryA := 'ALTER TABLE ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.pglog DETACH PARTITION ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.' || quote_ident(rtrim(ltrim(tbl,'"'),'"')) || ';';
-		RAISE WARNING 'log_dt[%], DETACH[%]', now() AT TIME ZONE tz, sqlqueryA USING ERRCODE = '01L07';
+		--RAISE WARNING 'DETACH[%]', sqlqueryA;
 		BEGIN
 			EXECUTE sqlqueryA;
 		EXCEPTION
@@ -374,7 +354,7 @@ BEGIN
 				v_hint    = pg_exception_hint,
 				v_context = pg_exception_context;
 
-				RAISE WARNING 'log_dt[%], [%]', now() AT TIME ZONE tz, sqlqueryA USING ERRCODE = '01L02';
+				RAISE WARNING 'DETACH[%]', sqlqueryA USING ERRCODE = '01L02';
 
 				RAISE WARNING E'Got exception:
 					state  : %
@@ -387,7 +367,7 @@ BEGIN
 		END;
 
 		sqlqueryB := 'ALTER TABLE ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.pglog ATTACH PARTITION ' || quote_ident(rtrim(ltrim(sch,'"'),'"')) || '.' || quote_ident(rtrim(ltrim(tbl,'"'),'"')) || ' FOR VALUES FROM (''' || date_trunc('hour',COALESCE(dt,dtf))::timestamptz || ''') TO (''' || date_trunc('hour',COALESCE(dt,dtf)::timestamptz+interval'1 hour') || ''');';
-		RAISE WARNING 'log_dt[%], ATTACH[%]', now() AT TIME ZONE tz, sqlqueryB USING ERRCODE = '01L06';
+		--RAISE WARNING 'ATTACH[%]', sqlqueryB;
 		BEGIN
 			EXECUTE sqlqueryB;
 		EXCEPTION
@@ -400,7 +380,7 @@ BEGIN
 				v_hint    = pg_exception_hint,
 				v_context = pg_exception_context;
 
-				RAISE WARNING 'log_dt[%], [%]', now() AT TIME ZONE tz, sqlqueryB USING ERRCODE = '01L03';
+				RAISE WARNING 'ATTACH[%]', sqlqueryB USING ERRCODE = '01L03';
 				-- ERROR:  partition "postgresql-Wed-15" would overlap partition "postgresql-Wed-16"
 
 				RAISE WARNING E'Got exception:
@@ -413,11 +393,7 @@ BEGIN
 				RETURN false;
 		END;
 
-	ELSE
-
-        RAISE WARNING 'The log file switch was performed on the master server.' USING ERRCODE = '01L08';
-
-    END IF;
+	END IF;
 
 	RETURN true;
 END;

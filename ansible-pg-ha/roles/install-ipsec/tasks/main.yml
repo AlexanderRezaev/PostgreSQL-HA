@@ -64,7 +64,7 @@
   - name: Check if IPSec is initialized on RED.
     stat:
       path: "/etc/ipsec.d/cert9.db"
-    register: ipsec_init_c
+    register: ipsec_init_r
     when: ansible_distribution == 'Rocky' or ansible_distribution == 'RED'
     tags: [ipsec_install]
 
@@ -89,7 +89,7 @@
 
   - name: ipsec initnss on RED
     shell: ipsec initnss --nssdir /etc/ipsec.d
-    when: (ansible_distribution == 'Rocky' or ansible_distribution == 'RED') and not ipsec_init_c.stat.exists
+    when: (ansible_distribution == 'Rocky' or ansible_distribution == 'RED') and not ipsec_init_r.stat.exists
     tags: [ipsec_install]
 
   - name: ipsec initnss
@@ -104,7 +104,8 @@
     tags: [ipsec_install]
 
   - name: ipsec newhostkey on RedHat
-    shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
+#    shell: ipsec newhostkey --nssdir /etc/ipsec.d --output /etc/ipsec.d/hostkey.secrets
+    shell: ipsec newhostkey --nssdir /etc/ipsec.d
     when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat' or ansible_distribution == 'OracleLinux') and not ipsec_hostkey.stat.exists
     tags: [ipsec_install]
 
@@ -234,9 +235,9 @@
       with_items: "{{ groups['ipsec_enable'] }}"
       tags: [ipsec_install]
 
-    when: ansible_distribution == 'ALT Server'
+    when: (ansible_distribution == 'ALT Server' or ansible_distribution == 'Altlinux')
 
-  - name: config astralinux
+  - name: config 'Astra Linux (Orel)'
     block:
 
     - name: set PSK
@@ -324,7 +325,7 @@
     with_items: "{{ groups['ipsec_enable'] }}"
     tags: [ipsec_install]
 
-  when: strongswan_rc.failed == false
+  when: libreswan_rc.failed == true and strongswan_rc.failed == false
 
 - name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
   shell: logger -t {{ hst.stdout }} "ansible playbook finished {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"

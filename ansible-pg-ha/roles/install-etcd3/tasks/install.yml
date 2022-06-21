@@ -6,10 +6,28 @@
 - name: Notify SysLog | {{ playbook_dir | basename }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}
   shell: logger -t {{ hst.stdout }} "ansible playbook started  {{ playbook_dir }} role={{ role_name }} inventory={{ inventory_file }} tag={{ ansible_run_tags }}"
 
+
+- debug: msg="{{ ansible_distribution }}"
+
 - name: install chrony
   package:
     name: chrony
     state: present
+
+- name: install if exists ioping & moreutils
+  block:
+
+  - name: install ioping
+    package:
+      name: ioping
+      state: present
+
+  - name: install moreutils package in CentOS
+    package:
+      name: moreutils
+      state: present
+
+  when: (ansible_distribution == 'ALT Server' or ansible_distribution == 'Altlinux')
 
 - name: EPEL Repo
   yum:
@@ -47,6 +65,43 @@
     comment: etcd service
     group: etcd
     state: present
+
+- name: dcs on mounted disk
+  block:
+
+  - name: check disk dcs mounted /dcs
+    shell: mountpoint '/dcs'
+    register: check_mount
+    vars:
+      mntp: "/dcs is a mountpoint"
+#    failed_when: check_mount.stdout == mntp
+
+  - name: Create dir /dcs
+    file:
+      path: "/dcs"
+      state: directory
+      owner: etcd
+      group: etcd
+      mode: 0700
+#    ignore_errors: true
+
+  - name: mount disk dcs to /dcs
+    mount:
+      src: "{{ dcs_dev }}"
+      path: "/dcs"
+      fstype: ext4
+      state: mounted
+      opts: rw,noatime,async,barrier=0,data=writeback,commit=60
+
+  - name: set permission
+    file:
+      path: "/dcs"
+      state: directory
+      owner: etcd
+      group: etcd
+      mode: 0700
+
+  when: dcs_on_mounted_disk == true
 
 - name: offline installation
   block:
@@ -137,6 +192,7 @@
     owner: etcd
     group: etcd
 
+#ansible_etcd_data_dir: '/var/lib/etcd'
 - name: create dir data
   file:
     path: "{{ ansible_etcd_data_dir }}"
@@ -144,75 +200,28 @@
     owner: etcd
     group: etcd
     mode: 0700
+  when: dcs_on_mounted_disk == false
 
-#- name: create dir data log
-#  file:
-#    path: "{{ etcd3_datlog }}"
-#    state: directory
-#    owner: etcd3
-#    group: etcd3
+#ansible_etcd_data_dir: '/dcs/etcd'
+- block:
 
-#- name: create dir log
-#  file:
-#    path: "{{ etcd3_log }}"
-#    state: directory
-#    owner: etcd3
-#    group: etcd3
+  - name: create dir data
+    file:
+      path: "/dcs/etcd"
+      state: directory
+      owner: etcd
+      group: etcd
+      mode: 0700
 
-#- name: create dir backups
-#  file:
-#    path: "{{ etcd3_backup_home }}/{{ zookeeper_service }}"
-#    state: directory
-#    owner: root
-#    group: root
-#    mode: o-rwx
+  - name: Create a symbolic link /var/lib/etcd
+    file:
+      src: "/dcs/etcd"
+      dest: '/var/lib/etcd'
+      owner: etcd
+      group: etcd
+      state: link
 
-#- name: create dir archives
-#  file:
-#    path: "{{ etcd3_archive_mount }}"
-#    state: directory
-#    owner: root
-#    group: root
-#    mode: o-rwx
-#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- name: unmount {{ etcd3_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
-#  mount:
-#    src: "{{ etcd3_archive_disk }}"
-#    path: "{{ etcd3_archive_mount }}"
-#    state: unmounted
-#    fstab: /tmp/zktmp.fstab
-#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- include: archiving_disk_state_reset.yml
-#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- include: archiving_disk_state_import.yml
-#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- name: mount {{ etcd3_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
-#  mount:
-#    src: "{{ etcd3_archive_disk }}"
-#    path: "{{ etcd3_archive_mount }}"
-#    fstype: xfs
-#    state: mounted
-#    fstab: /tmp/zktmp.fstab
-#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- name: unmount {{ etcd3_archive_disk }} to {{ zookeeper_archive_mount }} for archiving
-#  mount:
-#    src: "{{ etcd3_archive_disk }}"
-#    path: "{{ etcd3_archive_mount }}"
-#    state: unmounted
-#    fstab: /tmp/zktmp.fstab
-#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- include: archiving_disk_state_export.yml
-#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
-
-#- name: template archiving
-#  template: src=zk_archiving.sh dest="{{ etcd3_backup_home }}/{{ zookeeper_service }}/zk_archiving.sh" mode=0700
-#  when: etcd3_archive_disk is defined and zookeeper_archive_mount is defined
+  when: dcs_on_mounted_disk == true
 
 - name: Configure /etc/hosts. Comment on 127.0.1.1
   lineinfile:
@@ -244,6 +253,11 @@
 
 - name: systemd unit file
   template: src=etcd.service dest=/usr/lib/systemd/system/etcd.service owner=root group=root mode=0600
+  when: (ansible_distribution != 'ALT Server' and ansible_distribution != 'Altlinux')
+
+- name: systemd unit file on ALT
+  template: src=etcd.service dest=/lib/systemd/system/etcd.service owner=root group=root mode=0600
+  when: (ansible_distribution == 'ALT Server' or ansible_distribution == 'Altlinux')
 
 - name: Change owner {{ ansible_etcd_config_dir }}
   file:
@@ -261,22 +275,24 @@
     owner: etcd
     group: etcd
 
-- name: daemon reload
+- name: cgroups configuring /lib/systemd/system/etcd.service
+  command: sed -i '/\[Service\]/a Delegate=cpu memory io' /lib/systemd/system/etcd.service
+  when: etcd3_cgroups == true
+  args:
+    warn: no
+
+- name: cgroups configuring /lib/systemd/system/etcd.service
+  command: sed -i '/\[Service\]/a Slice=etcd.slice' /lib/systemd/system/etcd.service
+  when: etcd3_cgroups == true
+  args:
+    warn: no
+
+- name: daemon reload on ALT
   command: /usr/bin/systemctl daemon-reload
+#  when: (ansible_distribution == 'ALT Server' or ansible_distribution == 'Altlinux')
 
 - name: etcd service
   service: name=etcd state=started enabled=yes
-
-#- name: logrotate file
-#  template: src=etcd3.logrotate.j2 dest=/etc/logrotate.d/{{ zookeeper_service }} owner=root group=root mode=0644
-
-#- name: creates cron task for {{ etcd3_service }} backup
-#  ansible.builtin.cron:
-#    name: "Cron Task for {{ etcd3_service }} Backup"
-#    minute: "5"
-#    hour: "*/4"
-#    user: root
-#    job: "{{ etcd3_backup_home }}/{{ zookeeper_service }}/zk_backup.sh 1>/dev/null 2>&1"
 
 - name: add alias nocomments to .bashrc
   lineinfile:
@@ -285,9 +301,43 @@
     state: present
     create: yes
 
-- name: pause 30 seconds
+- name: pause 10 seconds
   pause:
-    seconds: 30
+    seconds: 10
+  run_once: true
+
+
+- name: cgroup
+  block:
+
+  - debug: msg="systemd-cgls --no-pager"
+    run_once: true
+
+  - name: Current cgroups
+    shell: systemd-cgls --no-pager
+    register: cgroups_list
+    run_once: true
+
+  - debug: var=cgroups_list.stdout_lines
+    run_once: true
+
+  - name: pause 10 seconds
+    pause:
+      seconds: 10
+    run_once: true
+
+  when: cgroups == true
+
+
+- debug: msg="/usr/local/bin/etcdctl member list"
+  run_once: true
+
+- name: Current ETCD Cluster
+  shell: /usr/local/bin/etcdctl member list
+  register: etcd_config
+  run_once: true
+
+- debug: var=etcd_config.stdout_lines
   run_once: true
 
 - debug: msg="/usr/local/bin/etcdctl cluster-health"
@@ -295,10 +345,10 @@
 
 - name: Current ETCD Cluster
   shell: /usr/local/bin/etcdctl cluster-health
-  register: etcd_config
+  register: etcd_health
   run_once: true
 
-- debug: var=etcd_config.stdout_lines
+- debug: var=etcd_health.stdout_lines
   run_once: true
 
 
