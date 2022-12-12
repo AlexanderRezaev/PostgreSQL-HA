@@ -227,3 +227,9 @@ root@c8-h1:~# ipsec whack --trafficstatus
 006 #3: "conn_172.27.172.144_172.27.172.145", type=ESP, add_time=1650959754, inBytes=236435391, outBytes=3667199, id='@c8-h2.lab.local'
 006 #4: "conn_172.27.172.144_172.27.172.146", type=ESP, add_time=1650959756, inBytes=944431, outBytes=586282, id='@c8-h3.lab.local'
 </code></pre>
+
+**Кластер под высокой нарузкой**
+
+Высокая нагрузка в кластере может сказаться на стабильности работы distributed configuration store (DCS) используемой в patroni.
+Обычно советуют вынести DCS на отдельные сервера. Рассмотрению альтернативы в виде cgroup v2 посвящено
+https://github.com/AlexanderRezaev/PostgreSQL-HA/cgroupv2.md
