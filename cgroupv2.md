@@ -20,7 +20,7 @@ https://habr.com/ru/company/oleg-bunin/blog/489206/<BR>
 <BR>**zookeeper**<BR>
 
 Анализ лога zookeeper:<BR>
-<img>https://github.com/AlexanderRezaev/PostgreSQL-HA/blob/master/zookeeper_slow.jpg</img><BR>
+![image](https://github.com/AlexanderRezaev/PostgreSQL-HA/blob/master/zookeeper_slow.jpg)<BR>
 Вывод утилиты ioping работавшей параллельно:<BR>
 https://github.com/AlexanderRezaev/PostgreSQL-HA/blob/master/ioping_slow.jpg<BR>
 
