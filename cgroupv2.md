@@ -104,6 +104,14 @@ systemd-cgls --no-pager | grep -v color | grep 'slice\|service'
   │ └─getty@tty1.service 
   └─systemd-logind.service 
 
+df -hT | grep -v 'squashfs\|tmpfs\|overlay'
+
+Filesystem                             Type      Size  Used Avail Use% Mounted on
+/dev/sda1                              ext4       32G  2.9G   27G  10% /
+/dev/mapper/dcs_vg-dcs                 ext4      3.9G  123M  3.6G   4% /dcs
+/dev/mapper/postgresql_wal_vg-pg_wal   ext4      5.9G  305M  5.3G   6% /pg_wal
+/dev/mapper/postgresql_data_vg-pg_data xfs       8.0G  129M  7.9G   2% /pg_data
+
 mkdir -p /etc/systemd/system/etcd.service.d
 echo '[Service]' > /etc/systemd/system/etcd.service.d/cpu.conf
 echo 'CPUQuota=8%' >> /etc/systemd/system/etcd.service.d/cpu.conf
