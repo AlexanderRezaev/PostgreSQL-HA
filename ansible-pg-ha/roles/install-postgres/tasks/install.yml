@@ -216,7 +216,7 @@
   tags: [postgres_install]
 
 - name: cgroups configuring /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
-  command: sed -i '/\[Service\]/a Slice=postgresql.slice' /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
+  command: sed -i '/\[Service\]/a Slice=critical.slice' /usr/lib/systemd/system/postgresql-{{ postgresql_version }}.service
   when: not pgdata_dir_version.stat.exists and postgresql_cgroups == true
   args:
     warn: no

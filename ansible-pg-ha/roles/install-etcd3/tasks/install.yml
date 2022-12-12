@@ -282,7 +282,7 @@
     warn: no
 
 - name: cgroups configuring /lib/systemd/system/etcd.service
-  command: sed -i '/\[Service\]/a Slice=etcd.slice' /lib/systemd/system/etcd.service
+  command: sed -i '/\[Service\]/a Slice=critical.slice' /lib/systemd/system/etcd.service
   when: etcd3_cgroups == true
   args:
     warn: no

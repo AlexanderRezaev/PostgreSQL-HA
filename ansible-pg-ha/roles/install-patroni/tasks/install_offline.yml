@@ -276,7 +276,7 @@
   tags: [patroni_install]
 
 - name: cgroups config /usr/lib/systemd/system/patroni.service
-  command: sed -i '/\[Service\]/a Slice=postgresql.slice' /usr/lib/systemd/system/patroni.service
+  command: sed -i '/\[Service\]/a Slice=critical.slice' /usr/lib/systemd/system/patroni.service
   when: postgresql_cgroups == true
   args:
     warn: no
