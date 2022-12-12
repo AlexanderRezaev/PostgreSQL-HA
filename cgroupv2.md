@@ -1,23 +1,23 @@
 **Проблема стабильности работы distributed configuration store (DCS)**
 
 
-**etcd**
-https://etcd.io/docs/v3.5/op-guide/hardware/#disks
-A slow disk will increase etcd request latency and potentially hurt cluster stability.
+**etcd**<BR>
+https://etcd.io/docs/v3.5/op-guide/hardware/#disks<BR>
+A slow disk will increase etcd request latency and potentially hurt cluster stability.<BR>
 
-https://habr.com/ru/company/oleg-bunin/blog/489206/
-Проблема 1. СУБД и DCS на одном кластере
-
-
-**zookeeper**
-
-https://github.com/AlexanderRezaev/PostgreSQL-HA/ioping_slow.jpg
-https://github.com/AlexanderRezaev/PostgreSQL-HA/zookeeper_slow.jpg
+https://habr.com/ru/company/oleg-bunin/blog/489206/<BR>
+Проблема 1. СУБД и DCS на одном кластере<BR>
 
 
-**cgroup v2**
+**zookeeper**<BR>
 
-https://docs.kernel.org/admin-guide/cgroup-v2.html
-cgroup is a mechanism to organize processes hierarchically and distribute system resources along the hierarchy in a controlled and configurable manner.
+https://github.com/AlexanderRezaev/PostgreSQL-HA/blob/master/zookeeper_slow.jpg<BR>
+https://github.com/AlexanderRezaev/PostgreSQL-HA/blob/master/ioping_slow.jpg<BR>
+
+
+**cgroup v2**<BR>
+
+https://docs.kernel.org/admin-guide/cgroup-v2.html<BR>
+cgroup is a mechanism to organize processes hierarchically and distribute system resources along the hierarchy in a controlled and configurable manner.<BR>
 
 
