@@ -231,5 +231,5 @@ root@c8-h1:~# ipsec whack --trafficstatus
 **Кластер под высокой нарузкой**
 
 Высокая нагрузка в кластере может сказаться на стабильности работы distributed configuration store (DCS) используемой в patroni.
-Обычно советуют вынести DCS на отдельные сервера. Рассмотрению альтернативы в виде cgroup v2 посвящено
+Обычно советуют вынести DCS на отдельные сервера. Рассмотрению альтернативы в виде cgroup v2 посвящено:
 https://github.com/AlexanderRezaev/PostgreSQL-HA/blob/master/cgroupv2.md
