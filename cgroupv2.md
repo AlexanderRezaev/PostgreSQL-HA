@@ -39,8 +39,7 @@ cgroup is a mechanism to organize processes hierarchically and distribute system
 По умолчанию cgroup v2 работает в ALT Linux 10, Ubuntu 22.04 LTS<BR>
 
 ALT Linux 10<BR>
-<pre><code>
-# ls -la /sys/fs/cgroup/critical.slice/ | grep 'io\.'
+<pre><code># ls -la /sys/fs/cgroup/critical.slice/ | grep 'io\.'
 -rw-r--r--  1 root     root     0 Dec 11 09:33 io.bfq.weight
 -rw-r--r--  1 root     root     0 Dec 11 09:33 io.latency
 -rw-r--r--  1 root     root     0 Dec 11 09:33 io.low
@@ -51,8 +50,7 @@ ALT Linux 10<BR>
 </code></pre>
 
 Ubuntu 22.04 LTS
-<pre><code>
-# ls -la /sys/fs/cgroup/critical.slice/ | grep 'io\.'
+<pre><code># ls -la /sys/fs/cgroup/critical.slice/ | grep 'io\.'
 -rw-r--r--  1 root     root     0 Dec 12 11:27 io.max
 -rw-r--r--  1 root     root     0 Dec 12 11:27 io.pressure
 -rw-r--r--  1 root     root     0 Dec 12 11:27 io.prio.class
@@ -63,8 +61,7 @@ Ubuntu 22.04 LTS
 Настройки осуществляются по<BR>
 https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html<BR>
 
-<pre><code>
-sed -i '/^\[Service\]/a Delegate=cpu memory io' /lib/systemd/system/etcd.service
+<pre><code>sed -i '/^\[Service\]/a Delegate=cpu memory io' /lib/systemd/system/etcd.service
 sed -i '/^\[Service\]/a Slice=critical.slice' /lib/systemd/system/etcd.service
 
 sed -i '/^\[Service\]/a Delegate=cpu memory io' /lib/systemd/system/patroni.service
@@ -152,8 +149,7 @@ io.latency: 8:48 target=50000
 
 Установка и использование ioping<BR>
 
-<pre><code>
-apt-get install moreutils ioping
+<pre><code>apt-get install moreutils ioping
 # dnf -y install moreutils ioping
 
 timeout 60 ioping /dev/sda1 | ts '[%FT%T%z]' | tee /var/log/ioping.log
