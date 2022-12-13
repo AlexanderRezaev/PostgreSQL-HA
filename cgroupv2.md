@@ -58,8 +58,7 @@ Ubuntu 22.04 LTS
 -rw-r--r--  1 root     root     0 Dec 12 11:26 io.weight
 </code></pre>
 
-<BR>
-#Указанные ниже настройки тестовые!!! Требуется доработка.<BR>
+<BR># Указанные ниже настройки тестовые!!! Требуется доработка.<BR>
 
 Настройки осуществляются по<BR>
 https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html<BR>
