@@ -84,6 +84,9 @@ mkdir -p /etc/systemd/system/etcd.service.d
 echo '[Service]' > /etc/systemd/system/etcd.service.d/cpu.conf
 echo 'IODeviceLatencyTargetSec=/dev/mapper/dcs_vg-dcs 50ms' >> /etc/systemd/system/etcd.service.d/cpu.conf
 
+# непонятно, будет ли это работать так, как предполагается
+# если нет, то возможно придётся подбирать IOReadBandwidthMax, IOWriteBandwidthMax для postgresql
+
 systemctl daemon-reload
 systemctl restart etcd.service 
 systemctl restart patroni
