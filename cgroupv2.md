@@ -146,3 +146,15 @@ cgget -r io.latency /critical.slice/etcd.service
 io.latency: 8:48 target=50000
 
 </code></pre>
+
+
+<BR>**Замечание**<BR>
+
+Установка и использование ioping
+
+dnf -y install moreutils ioping
+apt-get install moreutils ioping
+
+timeout 60 ioping /dev/sda1 | ts '[%FT%T%z]' | tee /var/log/ioping.log
+
+- запускает на 60 секунд ioping с логированием в файл
