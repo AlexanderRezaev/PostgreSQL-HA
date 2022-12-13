@@ -58,6 +58,8 @@ Ubuntu 22.04 LTS
 -rw-r--r--  1 root     root     0 Dec 12 11:26 io.weight
 </code></pre>
 
+<BR>#Указанные ниже настройки тестовые!!! Требуется доработка.<BR>
+
 Настройки осуществляются по<BR>
 https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html<BR>
 
@@ -84,8 +86,7 @@ systemctl restart etcd.service
 systemctl restart patroni.service
 patronictl switchover
 
-systemd-cgls --no-pager | grep -v color | grep 'slice\|service'
-
+systemd-cgls --full --no-pager | grep -v color | grep 'slice\|service\|postgres'
 -.slice
 ├─critical.slice 
 │ ├─pgpool.service …
@@ -93,6 +94,19 @@ systemd-cgls --no-pager | grep -v color | grep 'slice\|service'
 │ ├─etcd.service …
 │ ├─pgbouncer.service …
 │ └─patroni.service …
+│   ├─ 7205 /usr/bin/postgres -D /var/lib/pgsql/data --config-file=/var/lib/pgsql/data/postgresql.conf --listen_addresses=0.0.0.0 --port=5434 --cluster_name=alt-cls --wal_level=replica --hot_standby=on --max_connections=100 --max_wal_senders=10 --max_prepared_transactions=0 --max_locks_per_transaction=64 --track_commit_timestamp=off --max_replication_slots=10 --max_worker_processes=8 --wal_log_hints=on
+│   ├─ 7206 postgres: alt-cls: logger
+│   ├─ 7209 postgres: alt-cls: checkpointer
+│   ├─ 7210 postgres: alt-cls: background writer
+│   ├─ 7211 postgres: alt-cls: stats collector
+│   ├─ 7219 postgres: alt-cls: clsadmin postgres 127.0.0.1(59322) idle
+│   ├─ 7498 postgres: alt-cls: walsender clsreplica 172.27.172.148(36804) streaming 0/1A0DC628
+│   ├─ 7557 postgres: alt-cls: walwriter
+│   ├─ 7558 postgres: alt-cls: autovacuum launcher
+│   ├─ 7559 postgres: alt-cls: archiver last was 00000010000000000000001A.partial
+│   ├─ 7560 postgres: alt-cls: logical replication launcher
+│   ├─ 7580 postgres: alt-cls: pgagent pgedb 127.0.0.1(60542) idle
+│   └─ 8368 postgres: alt-cls: walsender clsreplica 172.27.172.149(58308) streaming 0/1A0DC628
 ├─user.slice 
 │ └─user-0.slice 
 │   └─user@0.service …
@@ -127,8 +141,16 @@ echo 'CPUQuota=8%' >> /etc/systemd/system/etcd.service.d/cpu.conf
 echo 'MemoryLimit=80M' >> /etc/systemd/system/etcd.service.d/cpu.conf
 echo 'IODeviceLatencyTargetSec=/dev/mapper/dcs_vg-dcs 50ms' >> /etc/systemd/system/etcd.service.d/cpu.conf
 
+# postgres+patroni должны оставить cpu для etcd, pgagent, pgbouncer, pgpool
+# вот как бы ещё оставить cpu для самого patroni. чтобы postgres съедал не всё
+
+mkdir -p /etc/systemd/system/patroni.service.d
+echo '[Service]' > /etc/systemd/system/patroni.service.d/cpu.conf
+echo 'CPUQuota=80%' >> /etc/systemd/system/patroni.service.d/cpu.conf
+
 systemctl daemon-reload
 systemctl restart etcd.service 
+systemctl restart patroni.service 
 
 cgget -r cpu.max /critical.slice/etcd.service
 /critical.slice/etcd.service:
@@ -141,6 +163,10 @@ memory.max: 83886080
 cgget -r io.latency /critical.slice/etcd.service
 /critical.slice/etcd.service:
 io.latency: 8:48 target=50000
+
+cgget -r cpu.max /critical.slice/patroni.service
+/critical.slice/patroni.service:
+cpu.max: 80000 100000
 
 </code></pre>
 
