@@ -80,6 +80,13 @@ echo 'CPUQuota=80%' >> /etc/systemd/system/patroni.service.d/cpu.conf
 # postgres+patroni должны оставить cpu для etcd, pgagent, pgbouncer, pgpool
 # вот как бы ещё оставить cpu для самого patroni. чтобы postgres съедал не всё
 
+df -hT | grep -v 'squashfs\|tmpfs\|overlay'
+Filesystem                             Type      Size  Used Avail Use% Mounted on
+/dev/sda1                              ext4       32G  2.9G   27G  10% /
+/dev/mapper/postgresql_wal_vg-pg_wal   ext4      5.9G  369M  5.2G   7% /pg_wal
+/dev/mapper/dcs_vg-dcs                 ext4      3.9G  124M  3.6G   4% /dcs
+/dev/mapper/postgresql_data_vg-pg_data xfs       8.0G  129M  7.9G   2% /pg_data
+
 mkdir -p /etc/systemd/system/etcd.service.d
 echo '[Service]' > /etc/systemd/system/etcd.service.d/cpu.conf
 echo 'IODeviceLatencyTargetSec=/dev/mapper/dcs_vg-dcs 50ms' >> /etc/systemd/system/etcd.service.d/cpu.conf
@@ -142,13 +149,6 @@ systemd-cgls --full --no-pager | grep -v color | grep 'slice\|service\|postgres'
   ├─system-getty.slice 
   │ └─getty@tty1.service 
   └─systemd-logind.service 
-
-df -hT | grep -v 'squashfs\|tmpfs\|overlay'
-Filesystem                             Type      Size  Used Avail Use% Mounted on
-/dev/sda1                              ext4       32G  2.9G   27G  10% /
-/dev/mapper/dcs_vg-dcs                 ext4      3.9G  123M  3.6G   4% /dcs
-/dev/mapper/postgresql_wal_vg-pg_wal   ext4      5.9G  305M  5.3G   6% /pg_wal
-/dev/mapper/postgresql_data_vg-pg_data xfs       8.0G  129M  7.9G   2% /pg_data
 </code></pre>
 
 
