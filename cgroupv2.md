@@ -14,7 +14,7 @@ https://etcd.io/docs/v3.5/op-guide/hardware/#disks<BR>
 A slow disk will increase etcd request latency and potentially hurt cluster stability.<BR>
 
 https://etcd.io/docs/v3.5/tuning/#disk<BR>
-# best effort, highest priority<BR>
+best effort, highest priority<BR>
 $ sudo ionice -c2 -n0 -p $(pgrep -a etcd | awk '{ print $1 }')<BR>
 
 https://habr.com/ru/company/oleg-bunin/blog/489206/<BR>
