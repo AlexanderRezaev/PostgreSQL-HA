@@ -13,6 +13,10 @@
 https://etcd.io/docs/v3.5/op-guide/hardware/#disks<BR>
 A slow disk will increase etcd request latency and potentially hurt cluster stability.<BR>
 
+https://etcd.io/docs/v3.5/tuning/#disk<BR>
+# best effort, highest priority<BR>
+$ sudo ionice -c2 -n0 -p $(pgrep -a etcd | awk '{ print $1 }')<BR>
+
 https://habr.com/ru/company/oleg-bunin/blog/489206/<BR>
 Проблема 1. СУБД и DCS на одном кластере<BR>
 
@@ -21,12 +25,11 @@ https://habr.com/ru/company/oleg-bunin/blog/489206/<BR>
 
 Анализ лога zookeeper:<BR>
 ![image](https://github.com/AlexanderRezaev/PostgreSQL-HA/blob/master/zookeeper_slow.jpg)<BR>
-Вывод утилиты ioping работавшей параллельно:<BR>
+Вывод утилиты ioping (замеряет latency диска каждую секунду) работавшей параллельно:<BR>
 ![image](https://github.com/AlexanderRezaev/PostgreSQL-HA/blob/master/ioping_slow.jpg)<BR>
 
 
-В cgroup v1 контроллер io не регулирует буферизованный ввод-вывод.<BR>
-
+<BR>В cgroup v1 контроллер io не регулирует буферизованный ввод-вывод.<BR>
 
 <BR>**cgroup v2**<BR>
 
