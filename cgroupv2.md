@@ -92,13 +92,29 @@ echo '[Service]' > /etc/systemd/system/etcd.service.d/cpu.conf
 echo 'IODeviceLatencyTargetSec=/dev/mapper/dcs_vg-dcs 50ms' >> /etc/systemd/system/etcd.service.d/cpu.conf
 
 # непонятно, будет ли это работать так, как предполагается
-# если нет, то возможно придётся подбирать IOReadBandwidthMax, IOWriteBandwidthMax для postgresql
+# возможно, это зависит от железа
+# возможно, придётся подбирать IOReadBandwidthMax, IOWriteBandwidthMax для postgresql
 
 systemctl daemon-reload
 systemctl restart etcd.service 
 systemctl restart patroni
 patronictl list
 patronictl switchover
+
+lsblk 
+NAME                           MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda                              8:0    0   32G  0 disk 
+└─sda1                           8:1    0   32G  0 part /
+sdb                              8:16   0    8G  0 disk 
+└─sdb1                           8:17   0    8G  0 part 
+  └─postgresql_data_vg-pg_data 253:1    0    8G  0 lvm  /pg_data
+sdc                              8:32   0    6G  0 disk 
+└─sdc1                           8:33   0    6G  0 part 
+  └─postgresql_wal_vg-pg_wal   253:0    0    6G  0 lvm  /pg_wal
+sdd                              8:48   0    4G  0 disk 
+└─sdd1                           8:49   0    4G  0 part 
+  └─dcs_vg-dcs                 253:2    0    4G  0 lvm  /dcs
+sr0                             11:0    1  3.7G  0 rom  
 
 cgget -r io.latency /critical.slice/etcd.service
 /critical.slice/etcd.service:
