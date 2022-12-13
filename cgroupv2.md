@@ -150,11 +150,13 @@ io.latency: 8:48 target=50000
 
 <BR>**Замечание**<BR>
 
-Установка и использование ioping
+Установка и использование ioping<BR>
 
-dnf -y install moreutils ioping
+<pre><code>
 apt-get install moreutils ioping
+# dnf -y install moreutils ioping
 
 timeout 60 ioping /dev/sda1 | ts '[%FT%T%z]' | tee /var/log/ioping.log
+</code></pre>
 
-- запускает на 60 секунд ioping с логированием в файл
+- запускает на 60 секунд ioping с логированием в файл<BR>
