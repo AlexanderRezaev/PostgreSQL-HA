@@ -167,6 +167,14 @@ systemd-cgls --full --no-pager | grep -v color | grep 'slice\|service\|postgres'
   └─systemd-logind.service 
 </code></pre>
 
+Почитать<BR>
+https://habr.com/ru/company/redhatrussia/blog/423051/<BR>
+https://habr.com/ru/company/redhatrussia/blog/424367/<BR>
+https://habr.com/ru/company/redhatrussia/blog/425803/<BR>
+https://habr.com/ru/company/redhatrussia/blog/427413/<BR>
+https://habr.com/ru/company/redhatrussia/blog/429064/<BR>
+https://habr.com/ru/company/redhatrussia/blog/430748/<BR>
+
 
 <BR>**Замечание**<BR>
 
