@@ -103,7 +103,7 @@
 
 Для выполнения всего перечисленного предпочтительнее использовать Patroni (<https://github.com/zalando/patroni>) - оркестратор работы высокодоступного кластера PostgreSQL (PostgreSQL High-Available Orchestrator)
 
-Учитывая наличие в Patroni callback скриптов, достаточно просто реализовать Cluster IP <https://patroni.readthedocs.io/en/latest/SETTINGS.html?highlight=callback>
+Учитывая наличие в Patroni callback скриптов, достаточно просто реализовать Cluster IP <https://patroni.readthedocs.io/en/latest/yaml_configuration.html?highlight=callbacks>
 
 Для работы Cluster IP в сегментированных корпоративных сетях используется ARP announcements <https://en.wikipedia.org/wiki/Address_Resolution_Protocol#ARP_announcements> (используется стандартно в кластерах pgpool).
 
