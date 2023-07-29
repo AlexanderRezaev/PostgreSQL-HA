@@ -105,7 +105,9 @@
 
 Учитывая наличие в Patroni callback скриптов, достаточно просто реализовать Cluster IP <https://patroni.readthedocs.io/en/latest/yaml_configuration.html?highlight=callbacks>
 
-Для работы Cluster IP в сегментированных корпоративных сетях используется ARP announcements <https://en.wikipedia.org/wiki/Address_Resolution_Protocol#ARP_announcements> (используется стандартно в кластерах pgpool).
+Для работы Cluster IP в сегментированных корпоративных сетях используется ARP announcements <https://en.wikipedia.org/wiki/Address_Resolution_Protocol#ARP_announcements> (также используется стандартно в кластерах pgpool).
+
+Службы безопасности часто требуют, чтобы данные не передавались по сети в открытом виде. Проще всего использовать IPSEC <https://ru.wikipedia.org/wiki/IPsec> <https://habr.com/ru/companies/cloud4y/articles/680178/>. IPSEC никак не вмешивается в работу приложений и обеспечивает шифрацию сетевого трафика. "IPSec, который станет составной частью IPv6, работает на третьем или сетевом уровне. В результате передаваемые IP-пакеты будут защищены прозрачным для сетевых приложений и инфраструктуры образом. В отличие от SSL (Secure Socket Layer), который работает на четвертом (транспортном) уровне и теснее связан с более высокими уровнями модели OSI, IPSec призван обеспечить низкоуровневую защиту."
 
 ---
 
